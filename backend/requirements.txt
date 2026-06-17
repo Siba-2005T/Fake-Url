@@ -14,7 +14,7 @@ Werkzeug==3.0.3
 PyMySQL==1.1.1
 cryptography==42.0.8
 # PostgreSQL (dùng cho Render production)
-psycopg2-binary==2.9.9
+psycopg2-binary>=2.9.9
 
 # --- SQLAlchemy ---
 SQLAlchemy==2.0.31
