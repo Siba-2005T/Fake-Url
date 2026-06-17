@@ -1,0 +1,77 @@
+# ============================================================
+# render.yaml - Cấu hình Deploy lên Render.com
+# Đặt file này ở ROOT của repository (cùng cấp backend/ frontend/)
+# ============================================================
+# Hướng dẫn: Kết nối GitHub repo với Render, nó sẽ tự đọc file này.
+# Tài liệu: https://render.com/docs/blueprint-spec
+
+services:
+  # ============================================================
+  # BACKEND: Flask API trên Render Web Service
+  # ============================================================
+  - type: web
+    name: cloak-link-backend
+    env: python
+    region: singapore  # Chọn region gần Việt Nam nhất
+    plan: free         # Free tier (có thể upgrade lên starter)
+
+    # Thư mục chứa code backend
+    rootDir: backend
+
+    # Lệnh cài đặt dependencies
+    buildCommand: pip install -r requirements.txt
+
+    # Lệnh khởi động server (Gunicorn - WSGI server cho production)
+    # run:app = file run.py, biến app
+    startCommand: gunicorn run:app --workers 2 --worker-class sync --bind 0.0.0.0:$PORT --timeout 120
+
+    # Health check path (Render dùng để kiểm tra app có healthy không)
+    healthCheckPath: /api/health
+
+    # Biến môi trường (Environment Variables)
+    # QUAN TRỌNG: Các biến SECRET phải được set trực tiếp trên Render Dashboard
+    # KHÔNG đặt giá trị bí mật trong file này vì nó được commit lên Git!
+    envVars:
+      - key: FLASK_ENV
+        value: production
+
+      - key: SECRET_KEY
+        generateValue: true  # Render tự tạo random secret key
+
+      # DATABASE_URL: Set thủ công trên Render Dashboard
+      # hoặc link đến Render PostgreSQL database (xem phần databases bên dưới)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cloak-link-db
+          property: connectionString
+
+      # Cloudinary: BẮT BUỘC set thủ công trên Render Dashboard
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false  # Phải set thủ công
+
+      - key: CLOUDINARY_API_KEY
+        sync: false
+
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      - key: CLOUDINARY_FOLDER
+        value: cloak_link_og_images
+
+      # URL của Frontend (Vercel) - set sau khi deploy frontend
+      - key: FRONTEND_URL
+        sync: false  # Set thủ công sau khi có Vercel URL
+
+      # URL của Backend chính nó
+      - key: BASE_URL
+        value: https://cloak-link-backend.onrender.com
+
+  # ============================================================
+  # DATABASE: PostgreSQL trên Render
+  # ============================================================
+databases:
+  - name: cloak-link-db
+    plan: free
+    region: singapore
+    databaseName: cloak_link_db
+    user: cloak_link_user

@@ -1,0 +1,88 @@
+# ============================================================
+# .gitignore - CloakLink Project
+# ============================================================
+
+# ============================================================
+# PYTHON / BACKEND
+# ============================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# Environment variables (CỰC KỲ QUAN TRỌNG - KHÔNG bao giờ commit!)
+backend/.env
+.env
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Local uploads (chỉ local dev, không commit ảnh lên Git)
+backend/static/uploads/
+backend/static/default_og.png
+
+# Flask instance folder
+backend/instance/
+
+# ============================================================
+# JAVASCRIPT / FRONTEND
+# ============================================================
+# Dependencies (install lại bằng npm install)
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# DEPLOYMENT
+# ============================================================
+# Render không cần các file này trong repo
+*.log
