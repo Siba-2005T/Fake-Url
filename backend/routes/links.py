@@ -45,10 +45,10 @@ def _handle_image_upload(file) -> tuple[str | None, str | None, str | None]:
     if use_cloudinary:
         # --- Upload lên Cloudinary (Production) ---
         folder = current_app.config.get("CLOUDINARY_FOLDER", "cloak_link_og_images")
-        image_url, public_id = upload_image_to_cloudinary(file, folder=folder)
+        image_url, public_id, error_msg = upload_image_to_cloudinary(file, folder=folder)
 
         if not image_url:
-            return None, None, "Upload ảnh lên Cloudinary thất bại. Vui lòng thử lại."
+            return None, None, error_msg or "Upload ảnh lên Cloudinary thất bại. Vui lòng thử lại."
 
         # Lưu URL đầy đủ của Cloudinary vào image_path
         return image_url, public_id, None

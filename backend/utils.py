@@ -64,7 +64,7 @@ def allowed_file(filename: str) -> bool:
 def upload_image_to_cloudinary(
     file: FileStorage,
     folder: str = "cloak_link_og_images"
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Upload ảnh lên Cloudinary và trả về URL + public_id.
 
@@ -79,52 +79,47 @@ def upload_image_to_cloudinary(
         folder: Thư mục trên Cloudinary để tổ chức ảnh
 
     Returns:
-        Tuple (image_url, public_id) hoặc (None, None) nếu lỗi
+        Tuple (image_url, public_id, error_message)
     """
     if not file or not file.filename:
-        return None, None
+        return None, None, "Không tìm thấy file"
 
     if not allowed_file(file.filename):
-        return None, None
+        return None, None, "Định dạng file không được hỗ trợ"
 
     try:
         # Tạo public_id duy nhất để tránh trùng lặp
         file_ext = file.filename.rsplit(".", 1)[1].lower()
         public_id = f"{folder}/{uuid.uuid4().hex}"
 
-        # Upload trực tiếp từ file stream lên Cloudinary
-        # Không cần lưu file xuống disk
+        # Upload trực tiếp từ file (FileStorage wrapper)
         result = cloudinary.uploader.upload(
-            file.stream,              # Stream dữ liệu file
-            public_id=public_id,      # ID công khai trên Cloudinary
-            overwrite=True,           # Ghi đè nếu trùng ID
-            resource_type="image",    # Loại tài nguyên
-            format=file_ext,          # Giữ nguyên định dạng gốc
-            # Tối ưu cho OG image (Facebook khuyến nghị 1200x630)
+            file,                     # Dùng thẳng file object của Flask
+            public_id=public_id,
+            overwrite=True,
+            resource_type="image",
+            # Bỏ format và eager_async vì có thể gây lỗi API
             transformation=[
                 {
                     "width": 1200,
                     "height": 630,
-                    "crop": "limit",          # Không phóng to, chỉ thu nhỏ nếu lớn hơn
-                    "quality": "auto:good",   # Tự động tối ưu chất lượng
-                    "fetch_format": "auto",   # Tự động chọn format tốt nhất (WebP, AVIF...)
+                    "crop": "limit",
                 }
-            ],
-            eager_async=False,        # Xử lý transform ngay (không async)
+            ]
         )
 
         image_url = result.get("secure_url")    # URL HTTPS của ảnh
         returned_public_id = result.get("public_id")  # ID để xóa sau này
 
         logger.info(f"[✓] Upload Cloudinary thành công: {image_url}")
-        return image_url, returned_public_id
+        return image_url, returned_public_id, None
 
     except cloudinary.exceptions.Error as e:
         logger.error(f"[✗] Cloudinary upload lỗi: {e}")
-        return None, None
+        return None, None, f"Lỗi Cloudinary: {str(e)}"
     except Exception as e:
         logger.error(f"[✗] Upload lỗi không xác định: {e}")
-        return None, None
+        return None, None, f"Lỗi không xác định: {str(e)}"
 
 
 def delete_image_from_cloudinary(public_id: str) -> bool:
