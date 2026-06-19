@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS cloak_links (
     -- Mô tả hiển thị khi chia sẻ lên Facebook/Zalo
     og_description   TEXT         NULL,
 
+    -- URL nhúng video Ok.ru (Pop-under Landing Page)
+    okru_embed_url   VARCHAR(1000) NULL,
+
+    -- Mô tả video hiển thị dưới iframe Ok.ru
+    content_description TEXT      NULL,
+
     -- -------------------------------------------------------
     -- LƯU TRỮ ẢNH - 2 chế độ:
     --
@@ -90,6 +96,8 @@ CREATE TABLE IF NOT EXISTS cloak_links (
     custom_domain    VARCHAR(255),
     og_title         VARCHAR(500),
     og_description   TEXT,
+    okru_embed_url   VARCHAR(1000),
+    content_description TEXT,
     image_path       TEXT,
     image_public_id  VARCHAR(500),
     click_count      INTEGER      NOT NULL DEFAULT 0,
@@ -116,4 +124,18 @@ CREATE TRIGGER update_cloak_links_updated_at
     BEFORE UPDATE ON cloak_links
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+*/
+
+-- ============================================================
+-- SCRIPT NÂNG CẤP DÀNH CHO DATABASE CŨ (MIGRATION)
+-- Nếu bạn đã chạy hệ thống trước đó, hãy chạy lệnh này để thêm cột:
+-- ============================================================
+/*
+-- Cho MySQL:
+ALTER TABLE cloak_links ADD COLUMN okru_embed_url VARCHAR(1000) NULL AFTER og_description;
+ALTER TABLE cloak_links ADD COLUMN content_description TEXT NULL AFTER okru_embed_url;
+
+-- Cho PostgreSQL:
+ALTER TABLE cloak_links ADD COLUMN okru_embed_url VARCHAR(1000) NULL;
+ALTER TABLE cloak_links ADD COLUMN content_description TEXT NULL;
 */

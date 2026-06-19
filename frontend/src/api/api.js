@@ -64,6 +64,8 @@ export const fetchLinks = async (page = 1, perPage = 20) => {
  * @param {string} [linkData.custom_domain] - Tên miền riêng
  * @param {string} [linkData.og_title]     - Tiêu đề OG
  * @param {string} [linkData.og_description] - Mô tả OG
+ * @param {string} [linkData.okru_embed_url] - Link iframe video Ok.ru
+ * @param {string} [linkData.content_description] - Mô tả hiển thị dưới video
  * @param {File}   [linkData.image]        - File ảnh thumbnail
  */
 export const createLink = async (linkData) => {
@@ -76,6 +78,8 @@ export const createLink = async (linkData) => {
   if (linkData.custom_domain) formData.append('custom_domain', linkData.custom_domain);
   if (linkData.og_title)      formData.append('og_title', linkData.og_title);
   if (linkData.og_description) formData.append('og_description', linkData.og_description);
+  if (linkData.okru_embed_url) formData.append('okru_embed_url', linkData.okru_embed_url);
+  if (linkData.content_description) formData.append('content_description', linkData.content_description);
 
   // Append file ảnh (nếu có)
   if (linkData.image instanceof File) {
@@ -98,6 +102,8 @@ export const updateLink = async (id, linkData) => {
   if (linkData.custom_domain !== undefined) formData.append('custom_domain', linkData.custom_domain || '');
   if (linkData.og_title !== undefined)      formData.append('og_title', linkData.og_title || '');
   if (linkData.og_description !== undefined) formData.append('og_description', linkData.og_description || '');
+  if (linkData.okru_embed_url !== undefined) formData.append('okru_embed_url', linkData.okru_embed_url || '');
+  if (linkData.content_description !== undefined) formData.append('content_description', linkData.content_description || '');
   if (linkData.is_active !== undefined)     formData.append('is_active', linkData.is_active.toString());
   if (linkData.image instanceof File)       formData.append('image', linkData.image);
 

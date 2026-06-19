@@ -46,8 +46,14 @@ class CloakLink(db.Model):
     # Tiêu đề hiển thị khi chia sẻ lên Facebook/Zalo
     og_title = db.Column(db.String(500), nullable=True)
 
-    # Mô tả hiển thị khi chia sẻ lên Facebook/Zalo
+    # Mô tả hiển thị khi chia sẻ lên Facebook/Zalo (OG description)
     og_description = db.Column(db.Text, nullable=True)
+
+    # URL nhúng video Ok.ru (Ví dụ: //ok.ru/videoembed/123456789)
+    okru_embed_url = db.Column(db.String(1000), nullable=True)
+
+    # Đoạn văn bản mô tả hiển thị bên dưới video Ok.ru
+    content_description = db.Column(db.Text, nullable=True)
 
     # -------------------------------------------------------------------------
     # LƯU TRỮ ẢNH - 2 trường hợp:
@@ -113,6 +119,8 @@ class CloakLink(db.Model):
             "custom_domain": self.custom_domain,
             "og_title": self.og_title,
             "og_description": self.og_description,
+            "okru_embed_url": self.okru_embed_url,
+            "content_description": self.content_description,
             # image_path: giữ nguyên giá trị trong DB (có thể là URL cloud hoặc path local)
             "image_path": self.image_path,
             # image_url: URL hiển thị đầy đủ (đã được resolve)

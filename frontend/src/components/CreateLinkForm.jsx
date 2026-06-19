@@ -10,7 +10,7 @@
  * - Preview URL cloak sẽ được tạo
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Link2, Fingerprint, Globe, Type, FileText, Loader2, Zap } from 'lucide-react';
+import { Link2, Fingerprint, Globe, Type, FileText, Loader2, Zap, Video, AlignLeft } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 import { createLink, checkSlugAvailability } from '../api/api';
 
@@ -33,6 +33,8 @@ const INITIAL_FORM = {
   custom_domain: '',
   og_title: '',
   og_description: '',
+  okru_embed_url: '',
+  content_description: '',
   image: null,
 };
 
@@ -329,6 +331,42 @@ const CreateLinkForm = ({ onSuccess }) => {
               Mô tả xuất hiện dưới tiêu đề trên Facebook
               {form.og_description && ` (${form.og_description.length}/500)`}
             </p>
+          </div>
+
+          {/* Input: Ok.ru Embed URL */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="okru_embed_url">
+              <Video size={14} />
+              Video Ok.ru (Bẫy click)
+              <span className="form-optional">(tuỳ chọn)</span>
+            </label>
+            <input
+              id="okru_embed_url"
+              type="url"
+              className="form-input"
+              placeholder="//ok.ru/videoembed/123456789"
+              value={form.okru_embed_url}
+              onChange={handleChange('okru_embed_url')}
+            />
+            <p className="form-hint">
+              Link nhúng iframe của video Ok.ru. Khi có link này, Landing Page "Pop-under" sẽ được tạo.
+            </p>
+          </div>
+
+          {/* Input: Nội dung mô tả video */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="content_description">
+              <AlignLeft size={14} />
+              Mô Tả Video (hiển thị dưới video)
+            </label>
+            <textarea
+              id="content_description"
+              className="form-textarea"
+              placeholder="Nhập mô tả dài, chi tiết cho video để thuyết phục người dùng..."
+              value={form.content_description}
+              onChange={handleChange('content_description')}
+              rows={4}
+            />
           </div>
 
           {/* Upload Thumbnail */}

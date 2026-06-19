@@ -142,6 +142,8 @@ def create_link():
         custom_domain = request.form.get("custom_domain", "").strip() or None
         og_title = request.form.get("og_title", "").strip() or None
         og_description = request.form.get("og_description", "").strip() or None
+        okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
+        content_description = request.form.get("content_description", "").strip() or None
 
         # --- Validation bắt buộc ---
         if not original_url:
@@ -186,6 +188,8 @@ def create_link():
             custom_domain=custom_domain,
             og_title=og_title,
             og_description=og_description,
+            okru_embed_url=okru_embed_url,
+            content_description=content_description,
             image_path=image_path,           # URL Cloudinary hoặc path local
             image_public_id=image_public_id, # Cloudinary public_id (để xóa sau)
         )
@@ -247,6 +251,10 @@ def update_link(link_id: int):
             link.og_title = request.form.get("og_title", "").strip() or None
         if "og_description" in request.form:
             link.og_description = request.form.get("og_description", "").strip() or None
+        if "okru_embed_url" in request.form:
+            link.okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
+        if "content_description" in request.form:
+            link.content_description = request.form.get("content_description", "").strip() or None
         if "is_active" in request.form:
             link.is_active = request.form.get("is_active", "true").lower() == "true"
 

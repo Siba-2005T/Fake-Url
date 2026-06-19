@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- OG META TAGS -->
+    <meta property="og:title" content="{{ og_title }}" />
+    <meta property="og:description" content="{{ og_description }}" />
+    <meta property="og:image" content="{{ og_image }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="{{ og_url }}" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ og_title }}" />
+    <meta name="twitter:description" content="{{ og_description }}" />
+    <meta name="twitter:image" content="{{ og_image }}" />
+
+    <title>{{ og_title }}</title>
+
+    <style>
+        body {
+            background: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Iframe container để giữ tỷ lệ 16:9 */
+        .video-container {
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            background: #000;
+            margin-top: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .content-description {
+            width: 100%;
+            max-width: 760px;
+            margin-top: 20px;
+            padding: 15px 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            line-height: 1.6;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        /* POP-UNDER OVERLAY (CLICK TRAP) */
+        .click-trap-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        .play-button-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: pulse 1.5s infinite;
+        }
+
+        .play-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 0, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+        }
+
+        .play-icon::after {
+            content: '';
+            display: block;
+            border-style: solid;
+            border-width: 15px 0 15px 25px;
+            border-color: transparent transparent transparent #fff;
+            margin-left: 8px;
+        }
+
+        .play-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Fallback loader */
+        .loader-fallback {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #fff; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    {% if okru_embed_url %}
+        <!-- Giao diện Landing Page Video Ok.ru -->
+        <div class="video-container">
+            <iframe src="{{ okru_embed_url }}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+        </div>
+
+        {% if content_description %}
+        <div class="content-description">
+            {{ content_description }}
+        </div>
+        {% endif %}
+
+        <!-- OVERLAY BẪY CLICK -->
+        <div class="click-trap-overlay" id="clickTrapOverlay">
+            <div class="play-button-wrapper">
+                <div class="play-icon"></div>
+                <div class="play-text">Nhấn để xem video</div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                var overlay = document.getElementById("clickTrapOverlay");
+                if (overlay) {
+                    overlay.addEventListener("click", function(e) {
+                        e.preventDefault();
+                        
+                        // 1. Mở Affiliate Link (Shopee) ở tab mới (Pop-under)
+                        window.open("{{ original_url }}", "_blank");
+                        
+                        // 2. Ẩn Overlay để người dùng xem video ở tab hiện tại
+                        overlay.style.display = "none";
+                    });
+                }
+            });
+        </script>
+    {% else %}
+        <!-- Giao diện chuyển hướng nhanh mặc định (nếu không có Video) -->
+        <div class="loader-fallback">
+            <div class="spinner"></div>
+            <p>Đang chuyển hướng...</p>
+        </div>
+        <script>
+            window.location.replace("{{ original_url }}");
+        </script>
+        <noscript>
+            <meta http-equiv="refresh" content="0; url={{ original_url }}" />
+        </noscript>
+    {% endif %}
+
+</body>
+</html>

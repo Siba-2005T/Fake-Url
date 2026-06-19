@@ -31,7 +31,7 @@ KẾT QUẢ: Link chia sẻ trên Facebook hiển thị ảnh/tiêu đề tùy c
 người dùng click được redirect sang trang thật.
 """
 import re
-from flask import Blueprint, request, render_template_string, abort, current_app
+from flask import Blueprint, request, render_template, abort, current_app
 
 from extensions import db
 from models import CloakLink
@@ -61,108 +61,7 @@ BOT_USER_AGENTS = [
     "developers.google.com", # Google Rich Results Test
 ]
 
-# ============================================================
-# TEMPLATE HTML - Trang OG + Redirect
-# ============================================================
-# Template này sẽ được render với dữ liệu từ database.
-# Chứa cả OG meta tags lẫn script redirect cho người dùng thật.
-OG_REDIRECT_TEMPLATE = """<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!--
-    ================================================================
-    OG META TAGS - Đây là phần quan trọng để tùy chỉnh preview
-    khi link được chia sẻ trên Facebook, Zalo, Telegram, v.v.
-    ================================================================
-    -->
-
-    <!-- Tiêu đề hiển thị khi share lên mạng xã hội -->
-    <meta property="og:title" content="{{ og_title }}" />
-
-    <!-- Mô tả ngắn hiển thị dưới tiêu đề -->
-    <meta property="og:description" content="{{ og_description }}" />
-
-    <!--
-    ẢNH THUMBNAIL - Đây là ảnh GHI ĐÈ lên ảnh mặc định của link gốc!
-    Facebook yêu cầu ảnh ít nhất 1200x630px để hiển thị đẹp nhất.
-    -->
-    <meta property="og:image" content="{{ og_image }}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-
-    <!-- URL của trang cloak (không phải URL gốc) -->
-    <meta property="og:url" content="{{ og_url }}" />
-
-    <!-- Loại nội dung -->
-    <meta property="og:type" content="website" />
-
-    <!-- Twitter Card (dùng cho Twitter/X) -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="{{ og_title }}" />
-    <meta name="twitter:description" content="{{ og_description }}" />
-    <meta name="twitter:image" content="{{ og_image }}" />
-
-    <title>{{ og_title }}</title>
-
-    <style>
-        /* Ẩn nội dung trang - người dùng sẽ bị redirect ngay lập tức */
-        body {
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            font-family: sans-serif;
-            color: #fff;
-        }
-        .loader {
-            text-align: center;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
-</head>
-<body>
-    <!-- Nội dung trang (chỉ hiển thị trong tích tắc) -->
-    <div class="loader">
-        <div class="spinner"></div>
-        <p>Đang chuyển hướng...</p>
-    </div>
-
-    <!--
-    ================================================================
-    REDIRECT SCRIPT - Tự động chuyển hướng người dùng thật
-    ================================================================
-    Đây là cơ chế "cloak":
-    1. Bot chỉ đọc HTML (không thực thi JS) -> thấy OG tags đẹp
-    2. Browser người dùng chạy JS -> redirect sang URL gốc ngay lập tức
-    ================================================================
-    -->
-    <script>
-        // Chuyển hướng ngay lập tức sang URL gốc
-        // Dùng replace() thay vì href để không lưu vào history
-        // (người dùng bấm Back sẽ không quay lại trang cloak)
-        window.location.replace("{{ original_url }}");
-    </script>
-
-    <!-- Fallback: Nếu JS bị tắt, dùng meta refresh -->
-    <noscript>
-        <meta http-equiv="refresh" content="0; url={{ original_url }}" />
-    </noscript>
-</body>
-</html>"""
+# Đã chuyển template sang file backend/templates/landing.html
 
 
 def is_bot_request(user_agent: str) -> bool:
@@ -236,15 +135,17 @@ def handle_redirect(slug: str):
             db.session.rollback()
 
     # --------------------------------------------------------
-    # Render và trả về HTML với OG tags + redirect script
+    # Render và trả về HTML với OG tags + redirect script / landing page
     # --------------------------------------------------------
-    html_content = render_template_string(
-        OG_REDIRECT_TEMPLATE,
+    html_content = render_template(
+        "landing.html",
         og_title=og_title,
         og_description=og_description,
         og_image=og_image_url,
         og_url=current_url,
         original_url=link.original_url,
+        okru_embed_url=link.okru_embed_url,
+        content_description=link.content_description
     )
 
     # Trả về HTML với status 200
