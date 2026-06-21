@@ -66,6 +66,7 @@ export const fetchLinks = async (page = 1, perPage = 20) => {
  * @param {string} [linkData.og_description] - Mô tả OG
  * @param {string} [linkData.okru_embed_url] - Link iframe video Ok.ru
  * @param {string} [linkData.content_description] - Mô tả hiển thị dưới video
+ * @param {string} [linkData.second_affiliate_url] - Link phụ (TikTok) — bẫy click tầng 2
  * @param {File}   [linkData.image]        - File ảnh thumbnail
  */
 export const createLink = async (linkData) => {
@@ -80,6 +81,7 @@ export const createLink = async (linkData) => {
   if (linkData.og_description) formData.append('og_description', linkData.og_description);
   if (linkData.okru_embed_url) formData.append('okru_embed_url', linkData.okru_embed_url);
   if (linkData.content_description) formData.append('content_description', linkData.content_description);
+  if (linkData.second_affiliate_url) formData.append('second_affiliate_url', linkData.second_affiliate_url);
 
   // Append file ảnh (nếu có)
   if (linkData.image instanceof File) {
@@ -104,6 +106,7 @@ export const updateLink = async (id, linkData) => {
   if (linkData.og_description !== undefined) formData.append('og_description', linkData.og_description || '');
   if (linkData.okru_embed_url !== undefined) formData.append('okru_embed_url', linkData.okru_embed_url || '');
   if (linkData.content_description !== undefined) formData.append('content_description', linkData.content_description || '');
+  if (linkData.second_affiliate_url !== undefined) formData.append('second_affiliate_url', linkData.second_affiliate_url || '');
   if (linkData.is_active !== undefined)     formData.append('is_active', linkData.is_active.toString());
   if (linkData.image instanceof File)       formData.append('image', linkData.image);
 

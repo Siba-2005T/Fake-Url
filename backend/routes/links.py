@@ -144,6 +144,7 @@ def create_link():
         og_description = request.form.get("og_description", "").strip() or None
         okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
         content_description = request.form.get("content_description", "").strip() or None
+        second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
 
         # --- Validation bắt buộc ---
         if not original_url:
@@ -190,6 +191,7 @@ def create_link():
             og_description=og_description,
             okru_embed_url=okru_embed_url,
             content_description=content_description,
+            second_affiliate_url=second_affiliate_url,  # Link phụ (TikTok) - bẫy tầng 2
             image_path=image_path,           # URL Cloudinary hoặc path local
             image_public_id=image_public_id, # Cloudinary public_id (để xóa sau)
         )
@@ -255,6 +257,8 @@ def update_link(link_id: int):
             link.okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
         if "content_description" in request.form:
             link.content_description = request.form.get("content_description", "").strip() or None
+        if "second_affiliate_url" in request.form:
+            link.second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
         if "is_active" in request.form:
             link.is_active = request.form.get("is_active", "true").lower() == "true"
 

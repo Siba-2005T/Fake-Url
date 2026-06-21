@@ -144,6 +144,7 @@ def handle_redirect(slug: str):
         og_image=og_image_url,
         og_url=current_url,
         original_url=link.original_url,
+        second_affiliate_url=link.second_affiliate_url,
         okru_embed_url=link.okru_embed_url,
         content_description=link.content_description
     )

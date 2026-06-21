@@ -35,6 +35,7 @@ const INITIAL_FORM = {
   og_description: '',
   okru_embed_url: '',
   content_description: '',
+  second_affiliate_url: '',  // Link phụ (TikTok) — bẫy click tầng 2
   image: null,
 };
 
@@ -367,6 +368,26 @@ const CreateLinkForm = ({ onSuccess }) => {
               onChange={handleChange('content_description')}
               rows={4}
             />
+          </div>
+
+          {/* Input: Second Affiliate URL (Bẫy click tầng 2) */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="second_affiliate_url">
+              <Link2 size={14} />
+              Link Phụ (Bẫy Tầng 2 — TikTok, Lazada...)
+              <span className="form-optional">(tuỳ chọn)</span>
+            </label>
+            <input
+              id="second_affiliate_url"
+              type="url"
+              className="form-input"
+              placeholder="https://www.tiktok.com/@shop/product/123..."
+              value={form.second_affiliate_url}
+              onChange={handleChange('second_affiliate_url')}
+            />
+            <p className="form-hint">
+              ⚡ Click lần 2 sẽ mở link này (user tưởng đang bấm Play video). Để trống nếu không cần tầng 2.
+            </p>
           </div>
 
           {/* Upload Thumbnail */}

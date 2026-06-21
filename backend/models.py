@@ -55,6 +55,10 @@ class CloakLink(db.Model):
     # Đoạn văn bản mô tả hiển thị bên dưới video Ok.ru
     content_description = db.Column(db.Text, nullable=True)
 
+    # URL Affiliate phụ (Tầng 2 của bẫy click - VD: TikTok, Lazada...)
+    # Được mở ở tab mới khi người dùng click LẦN THỨ 2 (tưởng bấm Play video)
+    second_affiliate_url = db.Column(db.String(2000), nullable=True)
+
     # -------------------------------------------------------------------------
     # LƯU TRỮ ẢNH - 2 trường hợp:
     #
@@ -121,6 +125,7 @@ class CloakLink(db.Model):
             "og_description": self.og_description,
             "okru_embed_url": self.okru_embed_url,
             "content_description": self.content_description,
+            "second_affiliate_url": self.second_affiliate_url,
             # image_path: giữ nguyên giá trị trong DB (có thể là URL cloud hoặc path local)
             "image_path": self.image_path,
             # image_url: URL hiển thị đầy đủ (đã được resolve)
