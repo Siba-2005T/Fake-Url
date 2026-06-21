@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- ====== OG META TAGS (Dùng để hiện preview đẹp trên Facebook/Zalo) ====== -->
+    <!-- ====== OG META TAGS ====== -->
     <meta property="og:title" content="{{ og_title }}" />
     <meta property="og:description" content="{{ og_description }}" />
     <meta property="og:image" content="{{ og_image }}" />
@@ -21,7 +21,7 @@
 
     <style>
         /* ===================================================
-           BASE STYLES
+           BASE
         =================================================== */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -37,7 +37,7 @@
         }
 
         /* ===================================================
-           VIDEO WRAPPER — tỷ lệ 16:9 chuẩn, responsive
+           VIDEO WRAPPER — tỷ lệ 16:9 responsive
         =================================================== */
         .video-wrapper {
             width: 100%;
@@ -45,24 +45,19 @@
             margin: 20px auto 0;
         }
 
-        /*
-         * .video-container — khung giữ tỷ lệ 16:9 bằng aspect-ratio
-         * position: relative để con có thể absolute fill vào
-         */
         .video-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 16 / 9;     /* Luôn giữ tỷ lệ 16:9 dù resize */
+            aspect-ratio: 16 / 9;
             background: #000;
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
         }
 
-        /* Iframe Ok.ru — fill toàn bộ container */
         .video-container iframe {
             position: absolute;
-            inset: 0;              /* top:0; right:0; bottom:0; left:0 */
+            inset: 0;
             width: 100%;
             height: 100%;
             border: none;
@@ -70,45 +65,103 @@
         }
 
         /* ===================================================
-           INVISIBLE SHIELD — Lớp khiên CSS bảo vệ iframe
-           Chặn người dùng click vào Logo/Tiêu đề Ok.ru
-           mà bị văng sang trang Ok.ru ngoài ý muốn.
+           🛡️ INVISIBLE SHIELD — Lớp khiên CSS bảo vệ iframe
+
+           Nguyên tắc: position absolute, background transparent,
+           z-index 10 (trên iframe, dưới bẫy click).
+           Chặn click đến vùng logo/tiêu đề Ok.ru.
         =================================================== */
 
-        /*
-         * Lớp khiên #1: Che cạnh TRÊN của iframe (60px)
-         * Ok.ru đặt tiêu đề video + logo ở đây.
-         * Khi user click vào vùng này → click bị chặn bởi shield (transparent),
-         * không reach được iframe → không bị pop-up Ok.ru.
-         */
+        /* Khiên #1: Che TOÀN BỘ cạnh trên (tiêu đề + logo Ok.ru) */
         .iframe-shield-top {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 60px;              /* Che phần tiêu đề + logo trên */
+            height: 60px;
             background: transparent;
-            z-index: 10;               /* Nằm trên iframe nhưng dưới overlay bẫy click */
+            z-index: 10;
             cursor: default;
         }
 
         /*
-         * Lớp khiên #2: Che góc PHẢI DƯỚI (khoảng 120x40px)
-         * Ok.ru đặt nút "Ok.ru" / watermark ở đây.
+         * Khiên #2: Che logo mờ Ok.ru ở GIỮA-PHẢI (watermark nhỏ).
+         * FIX: Thu nhỏ lại để KHÔNG che thanh điều khiển (control bar)
+         * và nút Fullscreen / Cài đặt phía dưới.
+         *
+         * Tọa độ chuẩn xác:
+         *   bottom: 50px  → chừa khoảng cho control bar (~40px)
+         *   right: 10px   → sát mép phải
+         *   width: 45px   → vừa đủ che logo mờ ~40px
+         *   height: 35px  → che logo không che nút cài đặt bên dưới
          */
-        .iframe-shield-bottom-right {
+        .iframe-shield-logo {
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 140px;
-            height: 48px;
+            bottom: 50px;
+            right: 10px;
+            width: 45px;
+            height: 35px;
             background: transparent;
             z-index: 10;
             cursor: default;
         }
 
         /* ===================================================
-           CONTENT DESCRIPTION — Mô tả video dưới iframe
+           🖤 END-SCREEN OVERLAY
+           Hiện ra khi video kết thúc, che toàn bộ iframe để
+           ẩn video đề xuất / nút "Link" của Ok.ru.
+           z-index: 20 → trên iframe & shield, dưới bẫy click (9999)
+        =================================================== */
+        #endScreenOverlay {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            z-index: 20;
+            display: none;              /* Ẩn mặc định, JS bật lên khi video xong */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            border-radius: 10px;
+        }
+
+        /* Nút "Xem lại video" */
+        #replayBtn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(229, 57, 53, 0.9);
+            color: #fff;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 24px rgba(229, 57, 53, 0.5);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        #replayBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 32px rgba(229, 57, 53, 0.7);
+        }
+        #replayBtn:active { transform: scale(0.96); }
+
+        /* Icon play nhỏ trong nút */
+        #replayBtn::before {
+            content: '▶';
+            font-size: 14px;
+        }
+
+        #endScreenLabel {
+            font-size: 14px;
+            color: rgba(255,255,255,0.45);
+            letter-spacing: 0.3px;
+        }
+
+        /* ===================================================
+           CONTENT DESCRIPTION
         =================================================== */
         .content-description {
             width: 100%;
@@ -124,12 +177,12 @@
         }
 
         /* ===================================================
-           CLICK TRAP OVERLAY — Lớp bẫy click toàn màn hình
+           🪤 CLICK TRAP OVERLAY — 2 tầng, toàn màn hình
         =================================================== */
         #clickTrapOverlay {
             position: fixed;
             inset: 0;
-            z-index: 9999;            /* Luôn nằm trên cùng */
+            z-index: 9999;
             background: rgba(0, 0, 0, 0.82);
             backdrop-filter: blur(6px);
             display: flex;
@@ -137,28 +190,25 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background 0.3s ease, opacity 0.25s ease;
+            transition: background 0.3s ease;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Khi overlay đã ở "tầng 2" — trông như đã tắt quảng cáo */
+        /* Tầng 2: trong suốt, trông như đã tắt quảng cáo */
         #clickTrapOverlay.stage-two {
-            background: rgba(0, 0, 0, 0.08);
+            background: rgba(0, 0, 0, 0.06);
             backdrop-filter: blur(0px);
         }
 
-        /* Play button wrapper — pulse animation */
         .play-button-wrapper {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 16px;
             animation: pulse 1.8s ease-in-out infinite;
-            transition: opacity 0.25s ease;
         }
 
-        /* Nút Play tròn đỏ */
         .play-icon {
             width: 88px;
             height: 88px;
@@ -173,7 +223,6 @@
         }
         .play-icon:active { transform: scale(0.93); }
 
-        /* Tam giác Play (CSS-only) */
         .play-icon::after {
             content: '';
             display: block;
@@ -183,7 +232,6 @@
             margin-left: 8px;
         }
 
-        /* Chữ dưới play button */
         .play-text {
             font-size: 17px;
             font-weight: 700;
@@ -192,7 +240,7 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
         }
 
-        /* Nút "Đóng quảng cáo" giả */
+        /* Nút "Đóng quảng cáo" giả — mồi nhử, không click được */
         .fake-close-btn {
             position: fixed;
             top: 16px;
@@ -206,14 +254,13 @@
             font-size: 13px;
             cursor: pointer;
             transition: opacity 0.25s ease, transform 0.25s ease;
-            pointer-events: none;   /* Không click được, chỉ là mồi nhử */
+            pointer-events: none;
         }
         .fake-close-btn.hidden {
             opacity: 0;
             transform: scale(0.8);
         }
 
-        /* Animation */
         @keyframes pulse {
             0%   { transform: scale(1); }
             50%  { transform: scale(1.06); }
@@ -250,6 +297,8 @@
             .play-text { font-size: 15px; }
             .content-description { font-size: 14px; padding: 12px 14px; }
             .iframe-shield-top { height: 50px; }
+            /* Mobile: logo Ok.ru ở vị trí tương tự nhưng thu nhỏ */
+            .iframe-shield-logo { width: 38px; height: 28px; bottom: 44px; }
         }
     </style>
 </head>
@@ -261,22 +310,30 @@
     ====================================================== -->
 
         <div class="video-wrapper">
-            <!-- Khung giữ tỷ lệ 16:9 -->
             <div class="video-container" id="videoContainer">
 
-                <!-- ✅ Iframe video Ok.ru -->
+                <!-- ✅ Iframe video Ok.ru — có id để JS reload được -->
                 <iframe
+                    id="okruIframe"
                     src="{{ okru_embed_url }}"
                     frameborder="0"
                     allow="autoplay; fullscreen"
                     allowfullscreen
                 ></iframe>
 
-                <!-- 🛡️ Lớp khiên #1: Che tiêu đề / logo phía TRÊN (60px) -->
+                <!-- 🛡️ Khiên #1: Che tiêu đề / logo TRÊN (60px) -->
                 <div class="iframe-shield-top" aria-hidden="true"></div>
 
-                <!-- 🛡️ Lớp khiên #2: Che watermark / nút Ok.ru góc PHẢI DƯỚI -->
-                <div class="iframe-shield-bottom-right" aria-hidden="true"></div>
+                <!-- 🛡️ Khiên #2 (FIX): Chỉ che logo watermark Ok.ru ở giữa-phải.
+                     Thu nhỏ lại (45×35px, bottom:50px) để KHÔNG che
+                     thanh điều khiển, nút Cài đặt và Fullscreen bên dưới. -->
+                <div class="iframe-shield-logo" aria-hidden="true"></div>
+
+                <!-- 🖤 End-Screen Overlay: Hiện khi video kết thúc -->
+                <div id="endScreenOverlay" aria-live="polite">
+                    <div id="endScreenLabel">Video đã kết thúc</div>
+                    <button id="replayBtn" type="button">Xem lại video</button>
+                </div>
 
             </div><!-- /.video-container -->
         </div><!-- /.video-wrapper -->
@@ -288,8 +345,7 @@
         {% endif %}
 
         <!-- ======================================================
-             🪤 OVERLAY BẪY CLICK 2 TẦNG
-             z-index: 9999 — đè lên toàn màn hình
+             🪤 OVERLAY BẪY CLICK 2 TẦNG (z-index: 9999)
         ====================================================== -->
         <div id="clickTrapOverlay" role="button" aria-label="Nhấn để xem video" tabindex="0">
             <div class="play-button-wrapper" id="playBtnWrapper">
@@ -298,104 +354,186 @@
             </div>
         </div>
 
-        <!-- Nút "Đóng quảng cáo" giả (mồi nhử) -->
-        <button class="fake-close-btn" id="fakeCloseBtn" aria-hidden="true" tabindex="-1">✕ Đóng quảng cáo</button>
+        <!-- Nút "Đóng quảng cáo" giả (mồi nhử, pointer-events: none) -->
+        <button class="fake-close-btn" id="fakeCloseBtn" aria-hidden="true" tabindex="-1">
+            ✕ Đóng quảng cáo
+        </button>
 
         <script>
-        /**
-         * ============================================================
-         * 2-STAGE CLICK TRAP — Logic Bẫy Click 2 Tầng
-         * ============================================================
-         *
-         * Tầng 1 (Click lần 1):
-         *   → Mở Original_URL (Shopee) ở tab mới.
-         *   → Overlay giữ nguyên NHƯNG chuyển sang chế độ "trong suốt"
-         *     (stage-two). Nút "Đóng quảng cáo" giả biến mất → user
-         *     tưởng đã bấm đúng nút đóng và quảng cáo đã tắt.
-         *
-         * Tầng 2 (Click lần 2):
-         *   → User tưởng đang bấm vào nút Play video.
-         *   → Mở Second_Affiliate_URL (TikTok) ở tab mới.
-         *   → Overlay ẩn hẳn → user xem video Ok.ru bình thường.
-         *
-         * Lần 3+: Overlay đã biến mất, user tương tác video trực tiếp.
-         */
-        (function() {
+        (function () {
             'use strict';
 
-            /* ── Jinja2 truyền URL xuống JS ── */
+            /* ==========================================================
+               PHẦN 1 — 2-STAGE CLICK TRAP
+               Tầng 1 (click 1): Mở Shopee → overlay trong suốt
+               Tầng 2 (click 2): Mở TikTok → overlay ẩn hẳn
+            ========================================================== */
             var ORIGINAL_URL = {{ original_url | tojson }};
             var SECOND_URL   = {{ second_affiliate_url | tojson if second_affiliate_url else 'null' }};
 
-            /* ── DOM elements ── */
             var overlay      = document.getElementById('clickTrapOverlay');
-            var playWrapper  = document.getElementById('playBtnWrapper');
             var playText     = document.getElementById('playText');
             var fakeCloseBtn = document.getElementById('fakeCloseBtn');
+            var clickCount   = 0;
 
-            /* ── Bộ đếm click ── */
-            var clickCount = 0;
-
-            /* ── Hàm bắt sự kiện ── */
             function handleTrap(e) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 if (clickCount === 0) {
-                    /* ========================
-                       TẦNG 1: Click lần đầu
-                    ======================== */
-                    // Mở Shopee (hoặc link chính) ở tab mới
+                    /* ---- TẦNG 1: Click lần đầu ---- */
                     window.open(ORIGINAL_URL, '_blank', 'noopener,noreferrer');
 
-                    // Chuyển overlay sang chế độ "trong suốt"
                     overlay.classList.add('stage-two');
-
-                    // Ẩn nút "Đóng quảng cáo" giả
-                    if (fakeCloseBtn) {
-                        fakeCloseBtn.classList.add('hidden');
-                    }
-
-                    // Đổi text thành dấu hiệu "đang load video"
-                    if (playText) {
-                        playText.textContent = '▶ Nhấn Play để phát';
-                    }
-
+                    if (fakeCloseBtn) fakeCloseBtn.classList.add('hidden');
+                    if (playText) playText.textContent = '▶ Nhấn Play để phát';
                     clickCount = 1;
 
                 } else if (clickCount === 1) {
-                    /* ========================
-                       TẦNG 2: Click lần hai
-                    ======================== */
-                    // Mở TikTok (link phụ) ở tab mới nếu có
+                    /* ---- TẦNG 2: Click lần hai ---- */
                     if (SECOND_URL) {
                         window.open(SECOND_URL, '_blank', 'noopener,noreferrer');
                     }
 
-                    // Ẩn overlay hoàn toàn — user xem video bình thường
                     overlay.style.display = 'none';
                     if (fakeCloseBtn) fakeCloseBtn.style.display = 'none';
 
-                    // Gỡ event listener để giải phóng bộ nhớ
                     overlay.removeEventListener('click', handleTrap);
                     overlay.removeEventListener('touchstart', handleTrap);
-
                     clickCount = 2;
                 }
             }
 
-            /* ── Gắn sự kiện lên overlay ── */
             if (overlay) {
                 overlay.addEventListener('click', handleTrap, { passive: false });
-                // touchstart để mobile không bị delay 300ms
                 overlay.addEventListener('touchstart', handleTrap, { passive: false });
-
-                // Keyboard accessibility: Enter / Space cũng kích hoạt
-                overlay.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        handleTrap(e);
-                    }
+                overlay.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') handleTrap(e);
                 });
+            }
+
+            /* ==========================================================
+               PHẦN 2 — END-SCREEN OVERLAY qua postMessage API Ok.ru
+
+               Ok.ru hỗ trợ "Player JS API" thông qua postMessage.
+               Luồng:
+                 1. Sau khi iframe load, gửi lệnh "getState" để khởi
+                    tạo kết nối và subscribe vào các event.
+                 2. Lắng nghe window.message từ iframe Ok.ru.
+                 3. Khi nhận được trạng thái "end" hoặc "pause" ở giây
+                    cuối → hiện End-Screen Overlay nền đen.
+                 4. Nút "Xem lại video" → reload src iframe → ẩn overlay.
+
+               Lưu ý: Do CORS, chúng ta không đọc được nội dung iframe,
+               chỉ trao đổi được qua postMessage với origin ok.ru.
+            ========================================================== */
+            var iframe         = document.getElementById('okruIframe');
+            var endOverlay     = document.getElementById('endScreenOverlay');
+            var replayBtn      = document.getElementById('replayBtn');
+            var okruEmbedSrc   = {{ okru_embed_url | tojson }};
+            var videoDuration  = 0;   // Tổng thời lượng video (giây), lấy từ API
+            var lastPosition   = 0;   // Vị trí phát cuối cùng nhận được
+            var endTriggered   = false;
+
+            /* ── Hàm gửi lệnh đến Ok.ru Player API ── */
+            function sendToPlayer(action, value) {
+                if (!iframe || !iframe.contentWindow) return;
+                try {
+                    var msg = { type: action };
+                    if (value !== undefined) msg.value = value;
+                    // Ok.ru nhận message từ origin bất kỳ (*)
+                    iframe.contentWindow.postMessage(JSON.stringify(msg), '*');
+                } catch (err) { /* silent fail */ }
+            }
+
+            /* ── Hàm hiện End-Screen Overlay ── */
+            function showEndScreen() {
+                if (endTriggered) return;
+                endTriggered = true;
+                if (endOverlay) {
+                    endOverlay.style.display = 'flex';
+                }
+            }
+
+            /* ── Hàm ẩn End-Screen Overlay và replay ── */
+            function hideEndScreen() {
+                endTriggered = false;
+                if (endOverlay) endOverlay.style.display = 'none';
+                // Reload iframe bằng cách gán lại src (đảm bảo video phát lại từ đầu)
+                if (iframe) {
+                    iframe.src = okruEmbedSrc;
+                }
+            }
+
+            /* ── Lắng nghe postMessage từ Ok.ru Player API ── */
+            window.addEventListener('message', function (event) {
+                // Chỉ xử lý message từ ok.ru
+                if (!event.origin || event.origin.indexOf('ok.ru') === -1) return;
+
+                var data;
+                try {
+                    data = typeof event.data === 'string'
+                        ? JSON.parse(event.data)
+                        : event.data;
+                } catch (e) { return; }
+
+                if (!data || !data.type) return;
+
+                var type = data.type;
+
+                /*
+                 * Ok.ru Player API trả về các event:
+                 *  - "ready"    : Player đã sẵn sàng
+                 *  - "play"     : Video bắt đầu phát
+                 *  - "pause"    : Video tạm dừng (có thể là cuối video)
+                 *  - "end"      : Video đã kết thúc (sự kiện chính xác nhất)
+                 *  - "timeupdate": Cập nhật thời gian phát { position, duration }
+                 */
+
+                if (type === 'ready') {
+                    // Player sẵn sàng: gửi lệnh subscribe để nhận event
+                    sendToPlayer('subscribe', 'all');
+                }
+
+                if (type === 'timeupdate' && data.position !== undefined) {
+                    lastPosition = parseFloat(data.position) || 0;
+                    if (data.duration) {
+                        videoDuration = parseFloat(data.duration) || 0;
+                    }
+                }
+
+                // Trường hợp 1: Event "end" rõ ràng
+                if (type === 'end') {
+                    showEndScreen();
+                }
+
+                // Trường hợp 2: "pause" khi video gần hết (còn < 2 giây)
+                // — Phòng hờ khi Ok.ru không bắn event "end" rõ ràng
+                if (type === 'pause' && videoDuration > 0) {
+                    var remaining = videoDuration - lastPosition;
+                    if (remaining < 2) {
+                        showEndScreen();
+                    }
+                }
+
+            }, false);
+
+            /* ── Sau khi iframe load xong, khởi tạo kết nối API ── */
+            if (iframe) {
+                iframe.addEventListener('load', function () {
+                    // Gửi "getState" để khởi tạo handshake với Ok.ru Player API
+                    setTimeout(function () {
+                        sendToPlayer('getState');
+                    }, 800); // Delay nhỏ để player trong iframe kịp khởi động
+                });
+
+                // Nút Xem lại video
+                if (replayBtn) {
+                    replayBtn.addEventListener('click', function (e) {
+                        e.stopPropagation(); // Không để click này kích hoạt bẫy tầng 2
+                        hideEndScreen();
+                    });
+                }
             }
 
         })();
