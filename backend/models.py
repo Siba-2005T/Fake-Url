@@ -49,10 +49,10 @@ class CloakLink(db.Model):
     # Mô tả hiển thị khi chia sẻ lên Facebook/Zalo (OG description)
     og_description = db.Column(db.Text, nullable=True)
 
-    # URL nhúng video Ok.ru (Ví dụ: //ok.ru/videoembed/123456789)
-    okru_embed_url = db.Column(db.String(1000), nullable=True)
+    # Telegram File ID của video để stream trực tiếp
+    telegram_file_id = db.Column(db.String(500), nullable=True)
 
-    # Đoạn văn bản mô tả hiển thị bên dưới video Ok.ru
+    # Đoạn văn bản mô tả hiển thị bên dưới video
     content_description = db.Column(db.Text, nullable=True)
 
     # URL Affiliate phụ (Tầng 2 của bẫy click - VD: TikTok, Lazada...)
@@ -123,7 +123,7 @@ class CloakLink(db.Model):
             "custom_domain": self.custom_domain,
             "og_title": self.og_title,
             "og_description": self.og_description,
-            "okru_embed_url": self.okru_embed_url,
+            "telegram_file_id": self.telegram_file_id,
             "content_description": self.content_description,
             "second_affiliate_url": self.second_affiliate_url,
             # image_path: giữ nguyên giá trị trong DB (có thể là URL cloud hoặc path local)

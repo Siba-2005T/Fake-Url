@@ -142,7 +142,7 @@ def create_link():
         custom_domain = request.form.get("custom_domain", "").strip() or None
         og_title = request.form.get("og_title", "").strip() or None
         og_description = request.form.get("og_description", "").strip() or None
-        okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
+        telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
         content_description = request.form.get("content_description", "").strip() or None
         second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
 
@@ -189,7 +189,7 @@ def create_link():
             custom_domain=custom_domain,
             og_title=og_title,
             og_description=og_description,
-            okru_embed_url=okru_embed_url,
+            telegram_file_id=telegram_file_id,
             content_description=content_description,
             second_affiliate_url=second_affiliate_url,  # Link phụ (TikTok) - bẫy tầng 2
             image_path=image_path,           # URL Cloudinary hoặc path local
@@ -253,8 +253,8 @@ def update_link(link_id: int):
             link.og_title = request.form.get("og_title", "").strip() or None
         if "og_description" in request.form:
             link.og_description = request.form.get("og_description", "").strip() or None
-        if "okru_embed_url" in request.form:
-            link.okru_embed_url = request.form.get("okru_embed_url", "").strip() or None
+        if "telegram_file_id" in request.form:
+            link.telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
         if "content_description" in request.form:
             link.content_description = request.form.get("content_description", "").strip() or None
         if "second_affiliate_url" in request.form:

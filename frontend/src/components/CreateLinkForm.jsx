@@ -33,7 +33,7 @@ const INITIAL_FORM = {
   custom_domain: '',
   og_title: '',
   og_description: '',
-  okru_embed_url: '',
+  telegram_file_id: '',
   content_description: '',
   second_affiliate_url: '',  // Link phụ (TikTok) — bẫy click tầng 2
   image: null,
@@ -336,21 +336,21 @@ const CreateLinkForm = ({ onSuccess }) => {
 
           {/* Input: Ok.ru Embed URL */}
           <div className="form-group">
-            <label className="form-label" htmlFor="okru_embed_url">
+            <label className="form-label" htmlFor="telegram_file_id">
               <Video size={14} />
-              Video Ok.ru (Bẫy click)
+              Telegram Video File ID (Bẫy click)
               <span className="form-optional">(tuỳ chọn)</span>
             </label>
             <input
-              id="okru_embed_url"
-              type="url"
+              id="telegram_file_id"
+              type="text"
               className="form-input"
-              placeholder="//ok.ru/videoembed/123456789"
-              value={form.okru_embed_url}
-              onChange={handleChange('okru_embed_url')}
+              placeholder="Nhập File ID của video trên Telegram..."
+              value={form.telegram_file_id}
+              onChange={handleChange('telegram_file_id')}
             />
             <p className="form-hint">
-              Link nhúng iframe của video Ok.ru. Khi có link này, Landing Page "Pop-under" sẽ được tạo.
+              File ID của video được lưu trữ trên Telegram. Video sẽ được phát trực tiếp mà không dính logo Ok.ru.
             </p>
           </div>
 

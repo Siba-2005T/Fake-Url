@@ -31,6 +31,8 @@ KẾT QUẢ: Link chia sẻ trên Facebook hiển thị ảnh/tiêu đề tùy c
 người dùng click được redirect sang trang thật.
 """
 import re
+import os
+import requests
 from flask import Blueprint, request, render_template, abort, current_app
 
 from extensions import db
@@ -135,6 +137,26 @@ def handle_redirect(slug: str):
             db.session.rollback()
 
     # --------------------------------------------------------
+    # Xử lý Telegram Video
+    # --------------------------------------------------------
+    video_url = None
+    if link.telegram_file_id:
+        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        if bot_token:
+            try:
+                # Gọi Telegram API getFile
+                tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
+                resp = requests.get(tg_api_url, timeout=5)
+                data = resp.json()
+                if data.get("ok") and "result" in data:
+                    file_path = data["result"].get("file_path")
+                    if file_path:
+                        # Construct link trực tiếp
+                        video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+            except Exception as e:
+                current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
+
+    # --------------------------------------------------------
     # Render và trả về HTML với OG tags + redirect script / landing page
     # --------------------------------------------------------
     html_content = render_template(
@@ -145,7 +167,7 @@ def handle_redirect(slug: str):
         og_url=current_url,
         original_url=link.original_url,
         second_affiliate_url=link.second_affiliate_url,
-        okru_embed_url=link.okru_embed_url,
+        video_url=video_url,
         content_description=link.content_description
     )
 
