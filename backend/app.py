@@ -9,9 +9,11 @@ import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
 
+from datetime import timedelta
+
 from config import config_map
-from extensions import db
-from routes import links_bp, redirect_bp, media_bp
+from extensions import db, jwt
+from routes import links_bp, redirect_bp, media_bp, auth_bp
 from utils import configure_cloudinary
 
 # Thiết lập logging
@@ -60,6 +62,14 @@ def create_app(env: str = None) -> Flask:
     # --- Khởi tạo SQLAlchemy với app ---
     db.init_app(app)
 
+    # --- Cấu hình JWT ---
+    app.config["JWT_SECRET_KEY"] = app.config.get("SECRET_KEY", "jwt-secret-fallback")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+    app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+    app.config["JWT_HEADER_NAME"] = "Authorization"
+    app.config["JWT_HEADER_TYPE"] = "Bearer"
+    jwt.init_app(app)
+
     # --- Cấu hình CORS ---
     # Lấy danh sách origins được phép từ config
     frontend_url = app.config.get("FRONTEND_URL", "http://localhost:5173")
@@ -87,6 +97,7 @@ def create_app(env: str = None) -> Flask:
     })
 
     # --- Đăng ký Blueprints ---
+    app.register_blueprint(auth_bp)       # /api/login, /api/me, /api/users
     app.register_blueprint(links_bp)      # /api/links/*
     app.register_blueprint(redirect_bp)   # /<slug> (root level)
     app.register_blueprint(media_bp)      # /api/telegram-videos, /api/direct-videos, /api/affiliate-links

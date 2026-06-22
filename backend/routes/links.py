@@ -1,15 +1,12 @@
 """
-routes/links.py - API Routes cho Cloak Links (CRUD)
-=====================================================
-Xử lý các thao tác tạo, đọc, cập nhật, xóa link.
-
-Thay đổi quan trọng so với phiên bản cũ:
-  - Tích hợp Cloudinary: upload ảnh lên cloud, lưu URL vào DB
-  - Fallback local storage khi không cấu hình Cloudinary
-  - Lưu image_public_id để xóa ảnh trên cloud khi cần
+routes/links.py - API Routes cho Cloak Links (CRUD + JWT Multi-tenancy)
+=========================================================================
+Tất cả API đều yêu cầu JWT token.
+Dữ liệu được cách ly theo user_id lấy từ token.
 """
 import re
 from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
 from models import CloakLink
@@ -21,21 +18,18 @@ from utils import (
     allowed_file,
 )
 
-# Tạo Blueprint để nhóm các routes liên quan đến links
 links_bp = Blueprint("links", __name__, url_prefix="/api/links")
 
 
-def _handle_image_upload(file) -> tuple[str | None, str | None, str | None]:
-    """
-    Xử lý upload ảnh - tự động chọn Cloudinary hoặc local.
+def _get_user_id():
+    """Lấy user_id từ JWT token."""
+    return int(get_jwt_identity())
 
-    Returns:
-        Tuple (image_path, image_public_id, error_message)
-        - Nếu thành công: (url_or_path, public_id_or_none, None)
-        - Nếu lỗi:        (None, None, error_message)
-    """
+
+def _handle_image_upload(file) -> tuple[str | None, str | None, str | None]:
+    """Xử lý upload ảnh - tự động chọn Cloudinary hoặc local."""
     if not file or not file.filename:
-        return None, None, None  # Không có file -> không phải lỗi
+        return None, None, None
 
     if not allowed_file(file.filename):
         return None, None, "File ảnh không hợp lệ. Chỉ chấp nhận: PNG, JPG, JPEG, GIF, WEBP."
@@ -43,57 +37,46 @@ def _handle_image_upload(file) -> tuple[str | None, str | None, str | None]:
     use_cloudinary = current_app.config.get("USE_CLOUDINARY", False)
 
     if use_cloudinary:
-        # --- Upload lên Cloudinary (Production) ---
         folder = current_app.config.get("CLOUDINARY_FOLDER", "cloak_link_og_images")
         image_url, public_id, error_msg = upload_image_to_cloudinary(file, folder=folder)
-
         if not image_url:
-            return None, None, error_msg or "Upload ảnh lên Cloudinary thất bại. Vui lòng thử lại."
-
-        # Lưu URL đầy đủ của Cloudinary vào image_path
+            return None, None, error_msg or "Upload ảnh lên Cloudinary thất bại."
         return image_url, public_id, None
-
     else:
-        # --- Fallback: Lưu local (chỉ local dev) ---
         upload_folder = current_app.config.get("UPLOAD_FOLDER", "static/uploads")
         image_path = save_uploaded_image_local(file, upload_folder)
-
         if not image_path:
             return None, None, "Lưu file ảnh thất bại."
-
-        return image_path, None, None  # Local không có public_id
+        return image_path, None, None
 
 
 def _handle_image_delete(image_path: str | None, image_public_id: str | None):
-    """
-    Xóa ảnh cũ - tự động chọn Cloudinary hoặc local.
-    """
+    """Xóa ảnh cũ - tự động chọn Cloudinary hoặc local."""
     if not image_path:
         return
-
     use_cloudinary = current_app.config.get("USE_CLOUDINARY", False)
-
     if use_cloudinary and image_public_id:
         delete_image_from_cloudinary(image_public_id)
     elif not use_cloudinary and image_path and not image_path.startswith("http"):
-        # Chỉ xóa local nếu là path tương đối (không phải URL cloud)
         upload_folder = current_app.config.get("UPLOAD_FOLDER", "static/uploads")
         delete_image_local(upload_folder, image_path)
 
 
 # ============================================================
-# GET /api/links/ - Lấy danh sách tất cả links (có phân trang)
+# GET /api/links/ - Lấy danh sách links CỦA USER HIỆN TẠI
 # ============================================================
 @links_bp.route("/", methods=["GET"])
+@jwt_required()
 def get_all_links():
-    """Trả về danh sách tất cả Cloak Links, sắp xếp mới nhất trước."""
+    """Trả về danh sách Cloak Links của user hiện tại."""
     try:
+        uid = _get_user_id()
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
 
-        # Query với phân trang, sắp xếp theo ngày tạo mới nhất
         paginated = (
             CloakLink.query
+            .filter_by(user_id=uid)
             .order_by(CloakLink.created_at.desc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
@@ -120,23 +103,15 @@ def get_all_links():
 
 
 # ============================================================
-# POST /api/links/ - Tạo Cloak Link mới (với Cloudinary upload)
+# POST /api/links/ - Tạo Cloak Link mới (gắn user_id)
 # ============================================================
 @links_bp.route("/", methods=["POST"])
+@jwt_required()
 def create_link():
-    """
-    Tạo một Cloak Link mới.
-
-    Nhận dữ liệu dạng multipart/form-data (vì có upload ảnh):
-    - original_url   (required): URL gốc cần che giấu
-    - custom_slug    (required): Slug tùy chỉnh (VD: hoat-hinh-2026)
-    - custom_domain  (optional): Tên miền riêng
-    - og_title       (optional): Tiêu đề OG
-    - og_description (optional): Mô tả OG
-    - image          (optional): File ảnh thumbnail -> upload lên Cloudinary
-    """
+    """Tạo một Cloak Link mới, gắn với user hiện tại."""
     try:
-        # --- Lấy dữ liệu text từ form ---
+        uid = _get_user_id()
+
         original_url = request.form.get("original_url", "").strip()
         custom_slug = request.form.get("custom_slug", "").strip()
         custom_domain = request.form.get("custom_domain", "").strip() or None
@@ -148,44 +123,29 @@ def create_link():
         content_description = request.form.get("content_description", "").strip() or None
         second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
 
-        # --- Validation bắt buộc ---
+        # Validation
         if not original_url:
             return jsonify({"success": False, "error": "original_url là bắt buộc."}), 400
-
         if not custom_slug:
             return jsonify({"success": False, "error": "custom_slug là bắt buộc."}), 400
-
         if not original_url.startswith(("http://", "https://")):
-            return jsonify({
-                "success": False,
-                "error": "original_url phải bắt đầu bằng http:// hoặc https://"
-            }), 400
-
+            return jsonify({"success": False, "error": "original_url phải bắt đầu bằng http:// hoặc https://"}), 400
         if not re.match(r"^[a-zA-Z0-9\-_]+$", custom_slug):
-            return jsonify({
-                "success": False,
-                "error": "custom_slug chỉ được chứa chữ cái, số, gạch ngang (-) và gạch dưới (_)."
-            }), 400
+            return jsonify({"success": False, "error": "custom_slug chỉ được chứa chữ, số, - và _"}), 400
 
-        # Kiểm tra slug đã tồn tại chưa (báo 409 Conflict)
         if CloakLink.query.filter_by(custom_slug=custom_slug).first():
-            return jsonify({
-                "success": False,
-                "error": f"Slug '{custom_slug}' đã được sử dụng. Vui lòng chọn slug khác."
-            }), 409  # 409 Conflict
+            return jsonify({"success": False, "error": f"Slug '{custom_slug}' đã được sử dụng."}), 409
 
-        # --- Xử lý upload ảnh (Cloudinary hoặc local fallback) ---
-        image_path = None
-        image_public_id = None
-
+        # Upload ảnh
+        image_path, image_public_id = None, None
         if "image" in request.files:
             file = request.files["image"]
             image_path, image_public_id, upload_error = _handle_image_upload(file)
             if upload_error:
                 return jsonify({"success": False, "error": upload_error}), 400
 
-        # --- Tạo bản ghi mới trong database ---
         new_link = CloakLink(
+            user_id=uid,
             original_url=original_url,
             custom_slug=custom_slug,
             custom_domain=custom_domain,
@@ -195,9 +155,9 @@ def create_link():
             telegram_file_id=telegram_file_id,
             direct_video_url=direct_video_url,
             content_description=content_description,
-            second_affiliate_url=second_affiliate_url,  # Link phụ (TikTok) - bẫy tầng 2
-            image_path=image_path,           # URL Cloudinary hoặc path local
-            image_public_id=image_public_id, # Cloudinary public_id (để xóa sau)
+            second_affiliate_url=second_affiliate_url,
+            image_path=image_path,
+            image_public_id=image_public_id,
         )
 
         db.session.add(new_link)
@@ -208,7 +168,7 @@ def create_link():
             "success": True,
             "message": "Tạo Cloak Link thành công!",
             "data": new_link.to_dict(base_url=base_url)
-        }), 201  # 201 Created
+        }), 201
 
     except Exception as e:
         db.session.rollback()
@@ -217,38 +177,33 @@ def create_link():
 
 
 # ============================================================
-# GET /api/links/<id> - Lấy chi tiết một link theo ID
+# GET /api/links/<id>
 # ============================================================
 @links_bp.route("/<int:link_id>", methods=["GET"])
+@jwt_required()
 def get_link(link_id: int):
-    """Trả về chi tiết một Cloak Link theo ID."""
-    link = db.get_or_404(CloakLink, link_id)
+    """Lấy chi tiết link (chỉ của user hiện tại)."""
+    uid = _get_user_id()
+    link = CloakLink.query.filter_by(id=link_id, user_id=uid).first_or_404()
     base_url = current_app.config.get("BASE_URL", "")
     return jsonify({"success": True, "data": link.to_dict(base_url=base_url)}), 200
 
 
 # ============================================================
-# PUT /api/links/<id> - Cập nhật một link
+# PUT /api/links/<id> - Cập nhật link (chỉ của user hiện tại)
 # ============================================================
 @links_bp.route("/<int:link_id>", methods=["PUT"])
+@jwt_required()
 def update_link(link_id: int):
-    """
-    Cập nhật thông tin Cloak Link.
-    Nếu upload ảnh mới:
-      - Xóa ảnh cũ khỏi Cloudinary (hoặc local)
-      - Upload ảnh mới lên Cloudinary (hoặc local)
-    """
+    """Cập nhật Cloak Link (chỉ cho phép sửa link của mình)."""
     try:
-        link = db.get_or_404(CloakLink, link_id)
+        uid = _get_user_id()
+        link = CloakLink.query.filter_by(id=link_id, user_id=uid).first_or_404()
 
-        # Cập nhật các field text nếu được gửi lên
         if "original_url" in request.form:
             original_url = request.form.get("original_url", "").strip()
             if not original_url.startswith(("http://", "https://")):
-                return jsonify({
-                    "success": False,
-                    "error": "original_url phải bắt đầu bằng http:// hoặc https://"
-                }), 400
+                return jsonify({"success": False, "error": "original_url phải bắt đầu bằng http://"}), 400
             link.original_url = original_url
 
         if "custom_domain" in request.form:
@@ -270,17 +225,13 @@ def update_link(link_id: int):
         if "is_active" in request.form:
             link.is_active = request.form.get("is_active", "true").lower() == "true"
 
-        # Xử lý upload ảnh mới
         if "image" in request.files:
             file = request.files["image"]
             if file and file.filename:
                 new_image_path, new_public_id, upload_error = _handle_image_upload(file)
                 if upload_error:
                     return jsonify({"success": False, "error": upload_error}), 400
-
-                # Xóa ảnh cũ (Cloudinary hoặc local)
                 _handle_image_delete(link.image_path, link.image_public_id)
-
                 link.image_path = new_image_path
                 link.image_public_id = new_public_id
 
@@ -300,25 +251,22 @@ def update_link(link_id: int):
 
 
 # ============================================================
-# DELETE /api/links/<id> - Xóa một link
+# DELETE /api/links/<id> - Xóa link (chỉ của user hiện tại)
 # ============================================================
 @links_bp.route("/<int:link_id>", methods=["DELETE"])
+@jwt_required()
 def delete_link(link_id: int):
-    """Xóa một Cloak Link và ảnh liên quan (Cloudinary hoặc local)."""
+    """Xóa Cloak Link (chỉ cho phép xóa link của mình)."""
     try:
-        link = db.get_or_404(CloakLink, link_id)
+        uid = _get_user_id()
+        link = CloakLink.query.filter_by(id=link_id, user_id=uid).first_or_404()
 
-        # Xóa ảnh trước (Cloudinary hoặc local)
         _handle_image_delete(link.image_path, link.image_public_id)
-
         slug = link.custom_slug
         db.session.delete(link)
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"Đã xóa link có slug '{slug}'."
-        }), 200
+        return jsonify({"success": True, "message": f"Đã xóa link '{slug}'."}), 200
 
     except Exception as e:
         db.session.rollback()

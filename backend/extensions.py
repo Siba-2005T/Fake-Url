@@ -5,7 +5,11 @@ Tách riêng việc khởi tạo extension để tránh
 circular import giữa app.py và models.py.
 """
 from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager
 
 # Khởi tạo SQLAlchemy (chưa gắn với app)
 # Sẽ được gắn với app trong app.py qua db.init_app(app)
 db = SQLAlchemy()
+
+# Khởi tạo JWT Manager
+jwt = JWTManager()

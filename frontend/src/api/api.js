@@ -1,5 +1,5 @@
 /**
- * api.js - Axios instance và các hàm gọi API
+ * api.js - Axios instance với JWT Interceptor + CRUD functions
  */
 import axios from 'axios';
 
@@ -8,15 +8,57 @@ const api = axios.create({
   timeout: 30000,
 });
 
-api.interceptors.request.use((config) => config, (error) => Promise.reject(error));
+/* ── JWT Interceptor: tự gắn Authorization header ── */
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
 
+/* ── Response interceptor: xử lý lỗi 401 (token hết hạn) ── */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      // Token hết hạn hoặc không hợp lệ → xóa token, reload về login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+    }
     const message = error.response?.data?.error || error.message || 'Có lỗi xảy ra.';
     return Promise.reject(new Error(message));
   }
 );
+
+/* ── Auth ── */
+export const loginAPI = async (username, password) => {
+  const { data } = await api.post('/api/login', { username, password });
+  return data;
+};
+
+export const fetchCurrentUser = async () => {
+  const { data } = await api.get('/api/me');
+  return data;
+};
+
+/* ── Users (Admin) ── */
+export const fetchUsers = async () => {
+  const { data } = await api.get('/api/users');
+  return data;
+};
+
+export const createUser = async (payload) => {
+  const { data } = await api.post('/api/users', payload);
+  return data;
+};
+
+export const deleteUser = async (id) => {
+  const { data } = await api.delete(`/api/users/${id}`);
+  return data;
+};
 
 /* ── Cloak Links ── */
 export const fetchLinks = async (page = 1, perPage = 20) => {

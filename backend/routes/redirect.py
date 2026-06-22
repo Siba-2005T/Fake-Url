@@ -36,7 +36,7 @@ import requests
 from flask import Blueprint, request, render_template, abort, current_app
 
 from extensions import db
-from models import CloakLink, TelegramVideo
+from models import CloakLink, TelegramVideo, User
 from utils import build_image_url
 
 # Blueprint cho redirect engine (không có prefix để xử lý ở root)
@@ -230,6 +230,20 @@ def telegram_webhook():
         if not message:
             return jsonify({"success": True, "message": "Not a message update"}), 200
 
+        # ── Multi-tenancy: Tìm user theo telegram_chat_id ──
+        sender = message.get("from") or {}
+        sender_id = str(sender.get("id", ""))
+
+        matched_user = None
+        if sender_id:
+            matched_user = User.query.filter_by(telegram_chat_id=sender_id).first()
+
+        if not matched_user:
+            current_app.logger.info(
+                f"[Telegram Webhook] Bỏ qua: sender_id={sender_id} không khớp user nào."
+            )
+            return jsonify({"success": True, "message": "Sender not linked to any user"}), 200
+
         # ── Ưu tiên 1: message.video (video nén chuẩn) ──
         media = message.get("video")
         media_type = "video"
@@ -253,7 +267,7 @@ def telegram_webhook():
         if not file_id:
             return jsonify({"success": True, "message": "No file_id"}), 200
 
-        # Lấy caption: ưu tiên caption của message, sau đó file_name
+        # Lấy caption
         caption = (
             message.get("caption")
             or media.get("file_name")
@@ -261,16 +275,16 @@ def telegram_webhook():
         )
 
         current_app.logger.info(
-            f"[Telegram Webhook] Saving {media_type}: file_id={file_id[:20]}... caption={caption}"
+            f"[Telegram Webhook] Saving {media_type} for user={matched_user.username}: file_id={file_id[:20]}..."
         )
 
-        # Lưu vào DB (bỏ qua nếu đã tồn tại)
+        # Lưu vào DB gắn user_id
         existing = TelegramVideo.query.filter_by(file_id=file_id).first()
         if not existing:
-            new_video = TelegramVideo(file_id=file_id, caption=caption)
+            new_video = TelegramVideo(user_id=matched_user.id, file_id=file_id, caption=caption)
             db.session.add(new_video)
             db.session.commit()
-            return jsonify({"success": True, "message": f"Saved: {caption}"}), 200
+            return jsonify({"success": True, "message": f"Saved for {matched_user.username}: {caption}"}), 200
         else:
             return jsonify({"success": True, "message": "Already exists"}), 200
 
