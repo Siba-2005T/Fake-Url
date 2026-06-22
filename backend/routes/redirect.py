@@ -287,6 +287,128 @@ def telegram_last_payload():
     }), 200
 
 
+# ============================================================
+# ENDPOINT: GET /api/telegram/pull-updates
+# Chủ động kéo video từ Telegram qua getUpdates API
+# Dùng khi webhook chưa hoạt động hoặc để sync thủ công
+# ============================================================
+@redirect_bp.route("/api/telegram/pull-updates", methods=["GET"])
+def pull_telegram_updates():
+    """
+    Chủ động gọi Telegram getUpdates để lấy tất cả video bot đã nhận.
+
+    Telegram lưu update tối đa 24h nếu chưa được xử lý.
+    Sau khi gọi endpoint này, tất cả video sẽ được lưu vào DB.
+
+    ⚠️ Lưu ý: Nếu webhook đang bật, getUpdates sẽ bị từ chối.
+       Cần tắt webhook trước: /api/telegram/disable-webhook
+    """
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not bot_token:
+        return jsonify({"success": False, "error": "TELEGRAM_BOT_TOKEN chưa cấu hình"}), 400
+
+    try:
+        saved = []
+        skipped = []
+        errors = []
+
+        # Gọi getUpdates với limit 100
+        updates_url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+        resp = requests.get(updates_url, params={"limit": 100, "timeout": 5}, timeout=10)
+        data = resp.json()
+
+        if not data.get("ok"):
+            return jsonify({
+                "success": False,
+                "error": "Telegram từ chối getUpdates — có thể webhook đang bật",
+                "telegram_response": data,
+                "fix": "Gọi /api/telegram/disable-webhook trước, rồi thử lại"
+            }), 400
+
+        updates = data.get("result", [])
+
+        for update in updates:
+            message = update.get("message") or update.get("channel_post")
+            if not message:
+                continue
+
+            # Hỗ trợ cả video lẫn document
+            media = message.get("video")
+            media_type = "video"
+
+            if not media:
+                doc = message.get("document")
+                if doc and doc.get("mime_type", "").startswith("video/"):
+                    media = doc
+                    media_type = "document"
+
+            if not media:
+                continue
+
+            file_id = media.get("file_id")
+            if not file_id:
+                continue
+
+            caption = (
+                message.get("caption")
+                or media.get("file_name")
+                or f"Video [{media_type}] {file_id[:10]}"
+            )
+
+            try:
+                existing = TelegramVideo.query.filter_by(file_id=file_id).first()
+                if not existing:
+                    new_video = TelegramVideo(file_id=file_id, caption=caption)
+                    db.session.add(new_video)
+                    db.session.commit()
+                    saved.append({"file_id": file_id[:20], "caption": caption})
+                else:
+                    skipped.append({"file_id": file_id[:20], "caption": caption})
+            except Exception as e:
+                db.session.rollback()
+                errors.append(str(e))
+
+        return jsonify({
+            "success": True,
+            "total_updates": len(updates),
+            "saved": len(saved),
+            "skipped_existing": len(skipped),
+            "errors": errors,
+            "saved_videos": saved,
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"pull_telegram_updates error: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================
+# ENDPOINT: GET /api/telegram/disable-webhook
+# Tắt webhook để dùng getUpdates (polling)
+# ============================================================
+@redirect_bp.route("/api/telegram/disable-webhook", methods=["GET"])
+def disable_telegram_webhook():
+    """Tắt webhook Telegram để có thể dùng getUpdates."""
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not bot_token:
+        return jsonify({"success": False, "error": "TELEGRAM_BOT_TOKEN chưa cấu hình"}), 400
+
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{bot_token}/deleteWebhook",
+            json={"drop_pending_updates": False},
+            timeout=10
+        )
+        result = resp.json()
+        return jsonify({
+            "success": result.get("ok", False),
+            "message": "Webhook đã tắt. Bây giờ có thể gọi /api/telegram/pull-updates",
+            "telegram_response": result
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 
 # ============================================================
 # ENDPOINT: GET /api/telegram-videos
