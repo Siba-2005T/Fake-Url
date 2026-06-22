@@ -184,6 +184,7 @@ class AffiliateLink(db.Model):
     platform = db.Column(db.String(50), nullable=False)   # 'shopee' | 'tiktok'
     name = db.Column(db.String(255), nullable=False)
     url = db.Column(db.String(2083), nullable=False)
+    clicks = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
 
     def to_dict(self) -> dict:
@@ -193,6 +194,7 @@ class AffiliateLink(db.Model):
             "platform": self.platform,
             "name": self.name,
             "url": self.url,
+            "clicks": self.clicks,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

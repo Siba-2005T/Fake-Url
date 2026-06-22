@@ -212,3 +212,21 @@ def delete_affiliate_link(link_id: int):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@media_bp.route("/affiliate-links/<int:link_id>/track-click", methods=["POST", "OPTIONS"])
+def track_affiliate_click(link_id: int):
+    """Tăng lượt click cho link tiếp thị (Public API, không cần JWT)."""
+    # Xử lý OPTIONS (Preflight) do sendBeacon có thể gửi CORS
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+
+    try:
+        link = AffiliateLink.query.get_or_404(link_id)
+        link.clicks += 1
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+

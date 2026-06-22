@@ -155,6 +155,7 @@ const AffiliateManagerPage = () => {
                     <th>Nền tảng</th>
                     <th>Tên gợi nhớ</th>
                     <th>URL</th>
+                    <th>Số Click</th>
                     <th>Ngày tạo</th>
                     <th>Hành động</th>
                   </tr>
@@ -176,6 +177,7 @@ const AffiliateManagerPage = () => {
                             {l.url.length > 45 ? l.url.slice(0, 45) + '...' : l.url}
                           </a>
                         </td>
+                        <td className="td-num" style={{ fontWeight: 'bold', color: '#10b981' }}>{l.clicks || 0}</td>
                         <td className="td-date">{new Date(l.created_at).toLocaleDateString('vi-VN')}</td>
                         <td className="td-actions">
                           <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setModal(l)}><Pencil size={14} /></button>

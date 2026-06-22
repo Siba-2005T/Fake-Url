@@ -36,7 +36,7 @@ import requests
 from flask import Blueprint, request, render_template, abort, current_app
 
 from extensions import db
-from models import CloakLink, TelegramVideo, User
+from models import CloakLink, TelegramVideo, User, AffiliateLink
 from utils import build_image_url
 
 # Blueprint cho redirect engine (không có prefix để xử lý ở root)
@@ -133,10 +133,12 @@ def handle_redirect(slug: str):
     og_description = link.og_description or "Nhấn để xem nội dung."
 
     # --------------------------------------------------------
-    # Tăng click_count (thống kê số lần click)
-    # Chỉ tăng khi có người THỰC SỰ click (không phải bot)
+    # Tăng click_count (thống kê số lần view) - Có chống spam bằng Cookie
     # --------------------------------------------------------
-    if not is_bot_request(user_agent):
+    cookie_key = f"viewed_{slug}"
+    has_viewed = request.cookies.get(cookie_key)
+
+    if not is_bot_request(user_agent) and not has_viewed:
         try:
             link.click_count += 1
             db.session.commit()
@@ -168,6 +170,15 @@ def handle_redirect(slug: str):
         video_url = link.direct_video_url
 
     # --------------------------------------------------------
+    # Tìm Affiliate Link ID để tracking click ở frontend
+    # --------------------------------------------------------
+    shopee_link = AffiliateLink.query.filter_by(url=link.original_url).first() if link.original_url else None
+    tiktok_link = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
+    
+    shopee_link_id = shopee_link.id if shopee_link else ""
+    tiktok_link_id = tiktok_link.id if tiktok_link else ""
+
+    # --------------------------------------------------------
     # Render và trả về HTML với OG tags + redirect script / landing page
     # --------------------------------------------------------
     html_content = render_template(
@@ -178,6 +189,8 @@ def handle_redirect(slug: str):
         og_url=current_url,
         original_url=link.original_url,
         second_affiliate_url=link.second_affiliate_url,
+        shopee_link_id=shopee_link_id,
+        tiktok_link_id=tiktok_link_id,
         video_url=video_url,
         final_video_url=video_url,
         content_description=link.content_description
@@ -192,6 +205,10 @@ def handle_redirect(slug: str):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    
+    # Nếu chưa xem, set cookie 24h
+    if not is_bot_request(user_agent) and not has_viewed:
+        response.set_cookie(cookie_key, '1', max_age=86400)
 
     return response
 
