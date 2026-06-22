@@ -204,6 +204,23 @@ def handle_redirect(slug: str):
 
 # Lưu payload cuối cùng để debug
 _last_webhook_payload = {}
+_last_webhook_error = ""
+
+@redirect_bp.route("/api/telegram/debug", methods=["GET"])
+def telegram_debug():
+    """Endpoint debug để xem payload cuối cùng Telegram gửi tới."""
+    from models import TelegramVideo, User
+    
+    # Lấy 5 video mới nhất bất kể của ai
+    recent_videos = TelegramVideo.query.order_by(TelegramVideo.id.desc()).limit(5).all()
+    users = User.query.all()
+    
+    return jsonify({
+        "last_payload": _last_webhook_payload,
+        "last_error": _last_webhook_error,
+        "users_in_db": [{"id": u.id, "username": u.username, "telegram_chat_id": u.telegram_chat_id} for u in users],
+        "recent_videos": [{"id": v.id, "user_id": v.user_id, "file_id": v.file_id, "caption": v.caption} for v in recent_videos]
+    }), 200
 
 @redirect_bp.route("/webhook/telegram", methods=["POST"])
 def telegram_webhook():
@@ -239,9 +256,8 @@ def telegram_webhook():
             matched_user = User.query.filter_by(telegram_chat_id=sender_id).first()
 
         if not matched_user:
-            current_app.logger.info(
-                f"[Telegram Webhook] Bỏ qua: sender_id={sender_id} không khớp user nào."
-            )
+            _last_webhook_error = f"Bỏ qua: sender_id={sender_id} không khớp user nào trong DB."
+            current_app.logger.info(f"[Telegram Webhook] {_last_webhook_error}")
             return jsonify({"success": True, "message": "Sender not linked to any user"}), 200
 
         # ── Ưu tiên 1: message.video (video nén chuẩn) ──
@@ -286,9 +302,12 @@ def telegram_webhook():
             db.session.commit()
             return jsonify({"success": True, "message": f"Saved for {matched_user.username}: {caption}"}), 200
         else:
+            _last_webhook_error = "Video đã tồn tại trong DB."
             return jsonify({"success": True, "message": "Already exists"}), 200
 
     except Exception as e:
+        global _last_webhook_error
+        _last_webhook_error = f"Lỗi exception: {str(e)}"
         db.session.rollback()
         current_app.logger.error(f"[Telegram Webhook] Error: {e}", exc_info=True)
         # Trả 200 để Telegram không retry liên tục
