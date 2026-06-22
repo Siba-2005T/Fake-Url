@@ -79,7 +79,9 @@ export const createLink = async (linkData) => {
   if (linkData.custom_domain) formData.append('custom_domain', linkData.custom_domain);
   if (linkData.og_title)      formData.append('og_title', linkData.og_title);
   if (linkData.og_description) formData.append('og_description', linkData.og_description);
+  if (linkData.video_source)    formData.append('video_source', linkData.video_source);
   if (linkData.telegram_file_id) formData.append('telegram_file_id', linkData.telegram_file_id);
+  if (linkData.direct_video_url) formData.append('direct_video_url', linkData.direct_video_url);
   if (linkData.content_description) formData.append('content_description', linkData.content_description);
   if (linkData.second_affiliate_url) formData.append('second_affiliate_url', linkData.second_affiliate_url);
 
@@ -104,7 +106,9 @@ export const updateLink = async (id, linkData) => {
   if (linkData.custom_domain !== undefined) formData.append('custom_domain', linkData.custom_domain || '');
   if (linkData.og_title !== undefined)      formData.append('og_title', linkData.og_title || '');
   if (linkData.og_description !== undefined) formData.append('og_description', linkData.og_description || '');
+  if (linkData.video_source !== undefined)    formData.append('video_source', linkData.video_source || 'direct');
   if (linkData.telegram_file_id !== undefined) formData.append('telegram_file_id', linkData.telegram_file_id || '');
+  if (linkData.direct_video_url !== undefined) formData.append('direct_video_url', linkData.direct_video_url || '');
   if (linkData.content_description !== undefined) formData.append('content_description', linkData.content_description || '');
   if (linkData.second_affiliate_url !== undefined) formData.append('second_affiliate_url', linkData.second_affiliate_url || '');
   if (linkData.is_active !== undefined)     formData.append('is_active', linkData.is_active.toString());
@@ -129,6 +133,14 @@ export const deleteLink = async (id) => {
  */
 export const checkSlugAvailability = async (slug) => {
   const { data } = await api.get(`/api/check-slug/${slug}`);
+  return data;
+};
+
+/**
+ * Lấy danh sách video Telegram đã nhận được qua webhook
+ */
+export const fetchTelegramVideos = async () => {
+  const { data } = await api.get('/api/telegram-videos');
   return data;
 };
 

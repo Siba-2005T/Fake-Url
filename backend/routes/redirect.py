@@ -36,7 +36,7 @@ import requests
 from flask import Blueprint, request, render_template, abort, current_app
 
 from extensions import db
-from models import CloakLink
+from models import CloakLink, TelegramVideo
 from utils import build_image_url
 
 # Blueprint cho redirect engine (không có prefix để xử lý ở root)
@@ -137,24 +137,28 @@ def handle_redirect(slug: str):
             db.session.rollback()
 
     # --------------------------------------------------------
-    # Xử lý Telegram Video
+    # Xử lý video URL dựa vào video_source
     # --------------------------------------------------------
     video_url = None
-    if link.telegram_file_id:
-        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-        if bot_token:
-            try:
-                # Gọi Telegram API getFile
-                tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
-                resp = requests.get(tg_api_url, timeout=5)
-                data = resp.json()
-                if data.get("ok") and "result" in data:
-                    file_path = data["result"].get("file_path")
-                    if file_path:
-                        # Construct link trực tiếp
-                        video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
-            except Exception as e:
-                current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
+    if link.video_source == 'telegram':
+        if link.telegram_file_id:
+            bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+            if bot_token:
+                try:
+                    # Gọi Telegram API getFile
+                    tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
+                    resp = requests.get(tg_api_url, timeout=5)
+                    data = resp.json()
+                    if data.get("ok") and "result" in data:
+                        file_path = data["result"].get("file_path")
+                        if file_path:
+                            # Construct link trực tiếp
+                            video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+                except Exception as e:
+                    current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
+    else:
+        # direct source
+        video_url = link.direct_video_url
 
     # --------------------------------------------------------
     # Render và trả về HTML với OG tags + redirect script / landing page
@@ -168,6 +172,7 @@ def handle_redirect(slug: str):
         original_url=link.original_url,
         second_affiliate_url=link.second_affiliate_url,
         video_url=video_url,
+        final_video_url=video_url,
         content_description=link.content_description
     )
 
@@ -185,6 +190,71 @@ def handle_redirect(slug: str):
 
 
 # ============================================================
+# ENDPOINT: POST /webhook/telegram
+# Nhận video từ Telegram bot để lưu trữ file_id
+# ============================================================
+@redirect_bp.route("/webhook/telegram", methods=["POST"])
+def telegram_webhook():
+    """
+    Nhận JSON từ Telegram Bot webhook.
+    Bóc tách message.video.file_id và message.caption.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "No data received"}), 400
+
+        # Telegram webhook gửi thông tin trong 'message' hoặc 'channel_post'
+        message = data.get("message") or data.get("channel_post")
+        if not message:
+            return jsonify({"success": True, "message": "Not a message update"}), 200
+
+        video = message.get("video")
+        if not video:
+            return jsonify({"success": True, "message": "No video in message"}), 200
+
+        file_id = video.get("file_id")
+        caption = message.get("caption") or video.get("file_name") or f"Telegram Video {file_id[:8]}"
+
+        if file_id:
+            # Kiểm tra xem video đã tồn tại chưa
+            existing = TelegramVideo.query.filter_by(file_id=file_id).first()
+            if not existing:
+                new_video = TelegramVideo(file_id=file_id, caption=caption)
+                db.session.add(new_video)
+                db.session.commit()
+                return jsonify({"success": True, "message": "Video saved successfully"}), 200
+            else:
+                return jsonify({"success": True, "message": "Video already exists"}), 200
+
+        return jsonify({"success": False, "message": "No file_id found"}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"telegram_webhook error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================
+# ENDPOINT: GET /api/telegram-videos
+# Lấy danh sách video Telegram đã nhận được
+# ============================================================
+@redirect_bp.route("/api/telegram-videos", methods=["GET"])
+def get_telegram_videos():
+    """
+    Lấy danh sách video từ bảng telegram_videos để hiển thị trong admin combobox.
+    """
+    try:
+        videos = TelegramVideo.query.order_by(TelegramVideo.created_at.desc()).all()
+        return jsonify({
+            "success": True,
+            "data": [v.to_dict() for v in videos]
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"get_telegram_videos error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================
 # ENDPOINT: GET /api/check-slug/<slug>
 # Kiểm tra slug đã tồn tại chưa (dùng cho frontend validation)
 # ============================================================
@@ -198,5 +268,6 @@ def check_slug_availability(slug: str):
     }), 200
 
 
-# Import jsonify ở đây để tránh lỗi (đã dùng trong check_slug)
+# Import jsonify ở đây để tránh lỗi (nếu chưa được import)
 from flask import jsonify
+

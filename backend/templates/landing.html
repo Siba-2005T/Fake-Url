@@ -239,50 +239,39 @@
 </head>
 <body>
 
-{% if video_url %}
-    <div class="video-wrapper">
-        <video id="mainVideo" playsinline controls controlsList="nodownload">
-            <source src="{{ video_url }}" type="video/mp4">
+{% if final_video_url %}
+    <div class="video-wrapper" style="position: relative;">
+        <!-- Trình phát Video HTML5 -->
+        <video id="mainVideo" playsinline style="width: 100%; max-width: 800px; aspect-ratio: 16/9; background: #000; margin: 0 auto; display: block;" controls controlsList="nodownload">
+            <source src="{{ final_video_url }}" type="video/mp4">
             Trình duyệt của bạn không hỗ trợ thẻ video.
         </video>
 
-        <!-- End-Screen Overlay -->
-        <div id="endScreenOverlay">
-            <button id="replayBtn" type="button">Xem lại video</button>
+        <!-- End-Screen Sạch (Che toàn bộ video khi kết thúc) -->
+        <div id="endScreenOverlay" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.95); z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center;">
+            <button id="replayBtn" type="button" style="background: #e53935; color: #fff; border: none; padding: 14px 28px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(229,57,53,0.4); outline: none;">
+                <span>▶</span> Xem lại video
+            </button>
         </div>
+
+        <!-- Bẫy click 2 tầng Anchor Tag Trick (z-index: 9999 phủ kín video) -->
+        <a
+            id="clickTrap"
+            href="{{ original_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="position: absolute; inset: 0; z-index: 9999; display: flex; justify-content: center; align-items: center; text-decoration: none; background: rgba(0, 0, 0, 0.7); transition: background 0.2s ease; width: 100%; height: 100%;"
+        >
+            <!-- Nút giả đóng quảng cáo / bấm play nổi bật -->
+            <div id="fakeCloseBtn" style="border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 30px; background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%); color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.8s ease-in-out infinite; text-align: center;">
+                Đóng quảng cáo (X)
+            </div>
+        </a>
     </div>
 
     {% if content_description %}
     <div class="content-description">{{ content_description }}</div>
     {% endif %}
-
-    <!--
-        🪝 BẪY CLICK 2 TẦNG — ANCHOR TAG TRICK
-
-        Dùng thẻ <a> thay vì <div> + window.open() để:
-        1. Bypass Facebook IAB chặn window.open()
-        2. Trình duyệt tự mở href → không bị popup warning "rời ứng dụng"
-
-        Luồng:
-          Click 1 → href=Original_URL (Shopee) → JS đổi href sang TikTok
-          Click 2 → href=Second_URL (TikTok)  → JS ẩn trap, phát video
-    -->
-    <a
-        id="clickTrap"
-        href="{{ original_url }}"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Nhấn để xem video"
-    >
-        <!-- Nội dung hiển thị giữa màn hình (pointer-events:none để <a> bắt click) -->
-        <div class="trap-content" id="trapContent">
-            <div class="trap-play-icon"></div>
-            <div class="trap-play-text" id="trapPlayText">Nhấn để xem video</div>
-        </div>
-
-        <!-- Badge giả "Đóng quảng cáo" góc trên phải -->
-        <span class="trap-close-badge" id="trapCloseBadge">✕ Đóng quảng cáo</span>
-    </a>
 
     <script>
     (function () {
@@ -294,77 +283,50 @@
 
         /* ── DOM refs ── */
         var trap       = document.getElementById('clickTrap');
-        var trapText   = document.getElementById('trapPlayText');
-        var trapBadge  = document.getElementById('trapCloseBadge');
+        var fakeClose  = document.getElementById('fakeCloseBtn');
         var mainVideo  = document.getElementById('mainVideo');
         var endOverlay = document.getElementById('endScreenOverlay');
         var replayBtn  = document.getElementById('replayBtn');
         var clickCount = 0;
 
         /* ================================================================
-           PHẦN 1 — BẪY CLICK 2 TẦNG (Anchor Tag Trick)
-
-           NGUYÊN LÝ:
-           - KHÔNG gọi window.open() — Facebook IAB sẽ chặn ngay.
-           - Để trình duyệt TỰ navigate href của <a target="_blank"> →
-             hoạt động bình thường ngay cả trong Facebook IAB.
-           - Sau khi click, dùng setTimeout(100ms) đổi href sang link
-             tầng tiếp theo, sẵn sàng cho lần bấm sau.
-           - KHÔNG gọi e.preventDefault() trong bất kỳ trường hợp nào.
+           BẪY CLICK 2 TẦNG (Anchor Tag Trick)
+           1. Click 1: Mở Original_URL, đổi href sang link 2, làm trong suốt và ẩn nút.
+           2. Click 2: Mở Second_URL, ẩn bẫy click hoàn toàn và phát video.
         ================================================================ */
         if (trap) {
-
             trap.addEventListener('click', function () {
-
                 if (clickCount === 0) {
-                    /* ──────────────────────────────────────────────────
-                       TẦNG 1: href hiện tại = ORIGINAL_URL (Shopee)
-                       Trình duyệt tự mở → KHÔNG cần window.open()
-                    ────────────────────────────────────────────────── */
                     setTimeout(function () {
-                        /* Chuẩn bị href cho click lần 2 */
+                        // Đổi href cho click lần 2
                         trap.href = SECOND_URL || ORIGINAL_URL;
-
-                        /* Overlay trở nên trong suốt */
-                        trap.classList.add('stage-two');
-
-                        /* Ẩn badge "Đóng quảng cáo" */
-                        if (trapBadge) trapBadge.classList.add('hidden');
-
-                        /* Đổi text gợi ý */
-                        if (trapText) trapText.textContent = '▶ Nhấn Play để phát';
+                        // Làm bẫy trong suốt
+                        trap.style.background = 'transparent';
+                        // Ẩn nút đóng giả
+                        if (fakeClose) {
+                            fakeClose.style.display = 'none';
+                        }
                     }, 100);
-
                     clickCount = 1;
-
                 } else if (clickCount === 1) {
-                    /* ──────────────────────────────────────────────────
-                       TẦNG 2: href hiện tại = SECOND_URL (TikTok)
-                       Trình duyệt tự mở → KHÔNG cần window.open()
-                    ────────────────────────────────────────────────── */
                     setTimeout(function () {
-                        /* Ẩn hoàn toàn trap, để lộ video */
+                        // Ẩn hoàn toàn bẫy click
                         trap.style.display = 'none';
-
-                        /* Phát video ngay lập tức */
+                        // Phát video tự động
                         if (mainVideo) {
                             mainVideo.play().catch(function (err) {
-                                /* Một số trình duyệt vẫn chặn autoplay —
-                                   user có thể bấm Play thủ công */
                                 console.log('Autoplay blocked:', err);
                             });
                         }
                     }, 100);
-
                     clickCount = 2;
                 }
             });
         }
 
         /* ================================================================
-           PHẦN 2 — END-SCREEN OVERLAY
-           Lắng nghe sự kiện "ended" chuẩn HTML5 → che toàn video,
-           hiện nút "Xem lại video", tuyệt đối không hiện đề xuất nào.
+           END-SCREEN OVERLAY
+           Khi video kết thúc, hiển thị màn hình đen có nút Xem lại
         ================================================================ */
         if (mainVideo && endOverlay) {
             mainVideo.addEventListener('ended', function () {
@@ -380,7 +342,6 @@
                 });
             }
         }
-
     })();
     </script>
 

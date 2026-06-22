@@ -142,7 +142,9 @@ def create_link():
         custom_domain = request.form.get("custom_domain", "").strip() or None
         og_title = request.form.get("og_title", "").strip() or None
         og_description = request.form.get("og_description", "").strip() or None
+        video_source = request.form.get("video_source", "direct").strip()
         telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
+        direct_video_url = request.form.get("direct_video_url", "").strip() or None
         content_description = request.form.get("content_description", "").strip() or None
         second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
 
@@ -189,7 +191,9 @@ def create_link():
             custom_domain=custom_domain,
             og_title=og_title,
             og_description=og_description,
+            video_source=video_source,
             telegram_file_id=telegram_file_id,
+            direct_video_url=direct_video_url,
             content_description=content_description,
             second_affiliate_url=second_affiliate_url,  # Link phụ (TikTok) - bẫy tầng 2
             image_path=image_path,           # URL Cloudinary hoặc path local
@@ -253,8 +257,12 @@ def update_link(link_id: int):
             link.og_title = request.form.get("og_title", "").strip() or None
         if "og_description" in request.form:
             link.og_description = request.form.get("og_description", "").strip() or None
+        if "video_source" in request.form:
+            link.video_source = request.form.get("video_source", "direct").strip()
         if "telegram_file_id" in request.form:
             link.telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
+        if "direct_video_url" in request.form:
+            link.direct_video_url = request.form.get("direct_video_url", "").strip() or None
         if "content_description" in request.form:
             link.content_description = request.form.get("content_description", "").strip() or None
         if "second_affiliate_url" in request.form:

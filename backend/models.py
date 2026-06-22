@@ -52,6 +52,12 @@ class CloakLink(db.Model):
     # Telegram File ID của video để stream trực tiếp
     telegram_file_id = db.Column(db.String(500), nullable=True)
 
+    # Nguồn video: 'telegram' hoặc 'direct'
+    video_source = db.Column(db.String(50), default='direct', nullable=True)
+
+    # URL video trực tiếp (ví dụ link mp4 từ Catbox hoặc host khác)
+    direct_video_url = db.Column(db.String(2083), nullable=True)
+
     # Đoạn văn bản mô tả hiển thị bên dưới video
     content_description = db.Column(db.Text, nullable=True)
 
@@ -123,7 +129,9 @@ class CloakLink(db.Model):
             "custom_domain": self.custom_domain,
             "og_title": self.og_title,
             "og_description": self.og_description,
+            "video_source": self.video_source,
             "telegram_file_id": self.telegram_file_id,
+            "direct_video_url": self.direct_video_url,
             "content_description": self.content_description,
             "second_affiliate_url": self.second_affiliate_url,
             # image_path: giữ nguyên giá trị trong DB (có thể là URL cloud hoặc path local)
@@ -138,3 +146,28 @@ class CloakLink(db.Model):
 
     def __repr__(self):
         return f"<CloakLink id={self.id} slug='{self.custom_slug}'>"
+
+
+class TelegramVideo(db.Model):
+    """
+    Model đại diện cho video nhận được từ Telegram bot webhook.
+    """
+
+    __tablename__ = "telegram_videos"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    file_id = db.Column(db.String(500), unique=True, nullable=False, index=True)
+    caption = db.Column(db.String(1000), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "file_id": self.file_id,
+            "caption": self.caption,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f"<TelegramVideo id={self.id} file_id='{self.file_id[:15]}...'>"
+

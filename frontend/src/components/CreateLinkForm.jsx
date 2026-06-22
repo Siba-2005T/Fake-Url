@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link2, Fingerprint, Globe, Type, FileText, Loader2, Zap, Video, AlignLeft } from 'lucide-react';
 import ImageUpload from './ImageUpload';
-import { createLink, checkSlugAvailability } from '../api/api';
+import { createLink, checkSlugAvailability, fetchTelegramVideos } from '../api/api';
 
 // Hàm tự động tạo slug từ text (chuyển tiếng Việt có dấu sang không dấu)
 const generateSlug = (text) => {
@@ -33,7 +33,9 @@ const INITIAL_FORM = {
   custom_domain: '',
   og_title: '',
   og_description: '',
+  video_source: 'direct',
   telegram_file_id: '',
+  direct_video_url: '',
   content_description: '',
   second_affiliate_url: '',  // Link phụ (TikTok) — bẫy click tầng 2
   image: null,
@@ -45,6 +47,24 @@ const CreateLinkForm = ({ onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slugStatus, setSlugStatus] = useState(null); // null | 'checking' | 'available' | 'taken'
   const [slugCheckTimeout, setSlugCheckTimeout] = useState(null);
+  const [telegramVideos, setTelegramVideos] = useState([]);
+
+  // Tải danh sách video từ Telegram Bot Webhook
+  useEffect(() => {
+    if (form.video_source === 'telegram') {
+      const loadTelegramVideos = async () => {
+        try {
+          const res = await fetchTelegramVideos();
+          if (res.success) {
+            setTelegramVideos(res.data || []);
+          }
+        } catch (err) {
+          console.error('Không thể lấy danh sách video Telegram:', err);
+        }
+      };
+      loadTelegramVideos();
+    }
+  }, [form.video_source]);
 
   // --------------------------------------------------------
   // Xử lý thay đổi input text
@@ -135,6 +155,14 @@ const CreateLinkForm = ({ onSuccess }) => {
 
     if (slugStatus === 'taken') {
       newErrors.custom_slug = 'Slug này đã được sử dụng. Hãy chọn slug khác.';
+    }
+
+    if (form.video_source === 'telegram' && !form.telegram_file_id) {
+      newErrors.telegram_file_id = 'Vui lòng chọn một video Telegram.';
+    }
+
+    if (form.video_source === 'direct' && !form.direct_video_url.trim()) {
+      newErrors.direct_video_url = 'Vui lòng nhập link video trực tiếp.';
     }
 
     setErrors(newErrors);
@@ -334,25 +362,83 @@ const CreateLinkForm = ({ onSuccess }) => {
             </p>
           </div>
 
-          {/* Input: Ok.ru Embed URL */}
+          {/* Nguồn Video */}
           <div className="form-group">
-            <label className="form-label" htmlFor="telegram_file_id">
+            <label className="form-label">
               <Video size={14} />
-              Telegram Video File ID (Bẫy click)
-              <span className="form-optional">(tuỳ chọn)</span>
+              Nguồn Video <span className="required">*</span>
             </label>
-            <input
-              id="telegram_file_id"
-              type="text"
-              className="form-input"
-              placeholder="Nhập File ID của video trên Telegram..."
-              value={form.telegram_file_id}
-              onChange={handleChange('telegram_file_id')}
-            />
-            <p className="form-hint">
-              File ID của video được lưu trữ trên Telegram. Video sẽ được phát trực tiếp mà không dính logo Ok.ru.
-            </p>
+            <div className="video-source-options" style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="video_source"
+                  value="telegram"
+                  checked={form.video_source === 'telegram'}
+                  onChange={() => setForm(prev => ({ ...prev, video_source: 'telegram' }))}
+                />
+                <span>Telegram Auto</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="video_source"
+                  value="direct"
+                  checked={form.video_source === 'direct'}
+                  onChange={() => setForm(prev => ({ ...prev, video_source: 'direct' }))}
+                />
+                <span>Link Catbox/MP4 Trực tiếp</span>
+              </label>
+            </div>
           </div>
+
+          {/* Hiển thị input tương ứng với nguồn video */}
+          {form.video_source === 'telegram' ? (
+            <div className="form-group">
+              <label className="form-label" htmlFor="telegram_file_id">
+                Chọn Video Telegram <span className="required">*</span>
+              </label>
+              <select
+                id="telegram_file_id"
+                className={`form-input ${errors.telegram_file_id ? 'error' : ''}`}
+                value={form.telegram_file_id}
+                onChange={handleChange('telegram_file_id')}
+              >
+                <option value="">-- Chọn video Telegram đã nhận --</option>
+                {telegramVideos.map((video) => (
+                  <option key={video.id} value={video.file_id}>
+                    {video.caption || `Video (${video.file_id.slice(0, 15)}...)`}
+                  </option>
+                ))}
+              </select>
+              {errors.telegram_file_id && (
+                <p className="form-error">{errors.telegram_file_id}</p>
+              )}
+              <p className="form-hint">
+                Video được nhận tự động qua Telegram bot. Hãy gửi video cho bot trước.
+              </p>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label className="form-label" htmlFor="direct_video_url">
+                URL Video Trực Tiếp (MP4/Catbox) <span className="required">*</span>
+              </label>
+              <input
+                id="direct_video_url"
+                type="text"
+                className={`form-input ${errors.direct_video_url ? 'error' : ''}`}
+                placeholder="https://files.catbox.moe/abcxyz.mp4"
+                value={form.direct_video_url}
+                onChange={handleChange('direct_video_url')}
+              />
+              {errors.direct_video_url && (
+                <p className="form-error">{errors.direct_video_url}</p>
+              )}
+              <p className="form-hint">
+                Nhập link trực tiếp đến file video (.mp4).
+              </p>
+            </div>
+          )}
 
           {/* Input: Nội dung mô tả video */}
           <div className="form-group">
