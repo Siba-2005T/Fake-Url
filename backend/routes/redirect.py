@@ -232,7 +232,7 @@ def telegram_webhook():
     - message.document: File gốc không nén (gửi dưới dạng file/tài liệu)
                         mime_type sẽ là 'video/mp4' hoặc 'video/*'
     """
-    global _last_webhook_payload
+    global _last_webhook_payload, _last_webhook_error
     try:
         data = request.get_json(force=True, silent=True)
         if not data:
@@ -306,7 +306,6 @@ def telegram_webhook():
             return jsonify({"success": True, "message": "Already exists"}), 200
 
     except Exception as e:
-        global _last_webhook_error
         _last_webhook_error = f"Lỗi exception: {str(e)}"
         db.session.rollback()
         current_app.logger.error(f"[Telegram Webhook] Error: {e}", exc_info=True)
