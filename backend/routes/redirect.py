@@ -271,3 +271,105 @@ def check_slug_availability(slug: str):
 # Import jsonify ở đây để tránh lỗi (nếu chưa được import)
 from flask import jsonify
 
+
+# ============================================================
+# ENDPOINT: GET /api/telegram/setup-webhook
+# Đăng ký webhook URL với Telegram (gọi 1 lần khi deploy)
+# ============================================================
+@redirect_bp.route("/api/telegram/setup-webhook", methods=["GET"])
+def setup_telegram_webhook():
+    """
+    Đăng ký URL webhook với Telegram Bot API.
+    Gọi endpoint này 1 lần sau khi deploy để Telegram
+    biết gửi update về đâu.
+
+    Yêu cầu:
+    - TELEGRAM_BOT_TOKEN đã được cấu hình trong .env
+    - BASE_URL phải là HTTPS (Telegram bắt buộc HTTPS cho webhook)
+    """
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not bot_token:
+        return jsonify({
+            "success": False,
+            "error": "TELEGRAM_BOT_TOKEN chưa được cấu hình trong .env!"
+        }), 400
+
+    base_url = current_app.config.get("BASE_URL", "").rstrip("/")
+    webhook_url = f"{base_url}/webhook/telegram"
+
+    try:
+        # Gọi API setWebhook của Telegram
+        set_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+        resp = requests.post(set_url, json={
+            "url": webhook_url,
+            "allowed_updates": ["message", "channel_post"],
+            "drop_pending_updates": True
+        }, timeout=10)
+        result = resp.json()
+
+        if result.get("ok"):
+            return jsonify({
+                "success": True,
+                "message": f"✅ Webhook đã đăng ký thành công!",
+                "webhook_url": webhook_url,
+                "telegram_response": result
+            }), 200
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Telegram từ chối đăng ký webhook",
+                "telegram_response": result,
+                "hint": "Đảm bảo BASE_URL là HTTPS và token đúng"
+            }), 400
+
+    except Exception as e:
+        current_app.logger.error(f"setup_telegram_webhook error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================
+# ENDPOINT: GET /api/telegram/status
+# Kiểm tra trạng thái webhook + danh sách video đã nhận
+# ============================================================
+@redirect_bp.route("/api/telegram/status", methods=["GET"])
+def telegram_status():
+    """
+    Endpoint debug:
+    - Kiểm tra webhook hiện tại được Telegram đăng ký là URL nào
+    - Xem danh sách video đã lưu trong database
+    - Kiểm tra token đã cấu hình chưa
+    """
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    token_ok = bool(bot_token)
+
+    webhook_info = None
+    if token_ok:
+        try:
+            info_url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
+            resp = requests.get(info_url, timeout=5)
+            webhook_info = resp.json().get("result", {})
+        except Exception as e:
+            webhook_info = {"error": str(e)}
+
+    # Lấy danh sách video trong DB
+    try:
+        videos = TelegramVideo.query.order_by(TelegramVideo.created_at.desc()).all()
+        video_list = [v.to_dict() for v in videos]
+    except Exception as e:
+        video_list = []
+
+    base_url = current_app.config.get("BASE_URL", "")
+
+    return jsonify({
+        "token_configured": token_ok,
+        "expected_webhook_url": f"{base_url}/webhook/telegram",
+        "current_webhook_info": webhook_info,
+        "videos_in_db": len(video_list),
+        "videos": video_list,
+        "setup_guide": {
+            "step1": "Điền TELEGRAM_BOT_TOKEN vào file .env",
+            "step2": f"Truy cập GET {base_url}/api/telegram/setup-webhook để đăng ký",
+            "step3": "Gửi video lên bot Telegram — video sẽ tự động lưu vào DB",
+            "step4": "Kiểm tra lại endpoint này để xác nhận"
+        }
+    }), 200
