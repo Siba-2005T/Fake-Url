@@ -171,3 +171,49 @@ class TelegramVideo(db.Model):
     def __repr__(self):
         return f"<TelegramVideo id={self.id} file_id='{self.file_id[:15]}...'>"
 
+
+class DirectVideo(db.Model):
+    """Video trực tiếp (link Catbox/MP4) do admin nhập tay."""
+
+    __tablename__ = "direct_videos"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    url = db.Column(db.String(2083), nullable=False)
+    caption = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "url": self.url,
+            "caption": self.caption,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f"<DirectVideo id={self.id} caption='{self.caption}'>"
+
+
+class AffiliateLink(db.Model):
+    """Link tiếp thị (Shopee/TikTok) do admin quản lý."""
+
+    __tablename__ = "affiliate_links"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    platform = db.Column(db.String(50), nullable=False)   # 'shopee' | 'tiktok'
+    name = db.Column(db.String(255), nullable=False)       # Tên gợi nhớ
+    url = db.Column(db.String(2083), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "platform": self.platform,
+            "name": self.name,
+            "url": self.url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f"<AffiliateLink id={self.id} platform='{self.platform}' name='{self.name}'>"
+

@@ -105,9 +105,16 @@ def handle_redirect(slug: str):
         is_active=True
     ).first()
 
-    # Không tìm thấy slug -> 404
+    # Không tìm thấy slug → render trang 404 thân thiện
     if not link:
-        abort(404)
+        try:
+            html_404 = render_template("404.html", slug=slug)
+        except Exception:
+            html_404 = "<h1>404 - Trang không tồn tại</h1>"
+        response = current_app.make_response(html_404)
+        response.status_code = 404
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
+        return response
 
     # Lấy các thông tin từ request
     user_agent = request.headers.get("User-Agent", "")

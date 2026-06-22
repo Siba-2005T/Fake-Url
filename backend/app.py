@@ -11,7 +11,7 @@ from flask_cors import CORS
 
 from config import config_map
 from extensions import db
-from routes import links_bp, redirect_bp
+from routes import links_bp, redirect_bp, media_bp
 from utils import configure_cloudinary
 
 # Thiết lập logging
@@ -89,6 +89,7 @@ def create_app(env: str = None) -> Flask:
     # --- Đăng ký Blueprints ---
     app.register_blueprint(links_bp)      # /api/links/*
     app.register_blueprint(redirect_bp)   # /<slug> (root level)
+    app.register_blueprint(media_bp)      # /api/telegram-videos, /api/direct-videos, /api/affiliate-links
 
     # --- Tạo bảng database nếu chưa tồn tại ---
     with app.app_context():

@@ -1,19 +1,27 @@
 /**
- * App.jsx - Root Component
- * =========================
- * Cấu hình React Router và render trang chủ.
+ * App.jsx - Root Component với Sidebar Layout
  */
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import HomePage from './pages/HomePage';
+import Sidebar from './components/Sidebar';
+import CreateLinkPage from './pages/CreateLinkPage';
+import VideoManagerPage from './pages/VideoManagerPage';
+import AffiliateManagerPage from './pages/AffiliateManagerPage';
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="*" element={<HomePage />} />
-      </Routes>
+      <div className="dashboard-layout">
+        <Sidebar />
+        <main className="dashboard-main">
+          <Routes>
+            <Route path="/" element={<CreateLinkPage />} />
+            <Route path="/videos" element={<VideoManagerPage />} />
+            <Route path="/affiliate" element={<AffiliateManagerPage />} />
+            <Route path="*" element={<CreateLinkPage />} />
+          </Routes>
+        </main>
+      </div>
     </BrowserRouter>
   );
 }

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Trang không tồn tại</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0f0f17;
+            color: #cdd6f4;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .container {
+            text-align: center;
+            max-width: 520px;
+        }
+        .code {
+            font-size: 8rem;
+            font-weight: 900;
+            line-height: 1;
+            background: linear-gradient(135deg, #cba6f7, #f38ba8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -4px;
+            margin-bottom: 16px;
+        }
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #cdd6f4;
+        }
+        .desc {
+            color: #9399b2;
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 32px;
+        }
+        .slug-info {
+            display: inline-block;
+            background: rgba(203, 166, 247, 0.1);
+            border: 1px solid rgba(203, 166, 247, 0.2);
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #cba6f7;
+            margin-bottom: 32px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #cba6f7, #b4befe);
+            color: #1e1e2e;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 12px 28px;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .back-btn:hover { opacity: 0.88; transform: scale(1.03); }
+        .emoji { font-size: 4rem; display: block; margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="emoji">🔗</span>
+        <div class="code">404</div>
+        <h1 class="title">Trang không tồn tại hoặc đã bị gỡ bỏ</h1>
+        <p class="desc">
+            Link bạn đang tìm kiếm không còn hoạt động nữa.<br>
+            Có thể link đã hết hạn, bị xóa, hoặc bạn đã gõ sai địa chỉ.
+        </p>
+        {% if slug %}
+        <div class="slug-info">/{{ slug }}</div><br>
+        {% endif %}
+        <a href="javascript:history.back()" class="back-btn">← Quay lại</a>
+    </div>
+</body>
+</html>
