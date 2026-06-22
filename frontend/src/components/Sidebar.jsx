@@ -2,7 +2,7 @@
  * Sidebar.jsx - Thanh điều hướng bên trái (Auth-aware)
  */
 import { NavLink } from 'react-router-dom';
-import { Zap, PlusCircle, Video, Link2, Users, LogOut } from 'lucide-react';
+import { Zap, PlusCircle, Video, Link2, Users, LogOut, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
@@ -10,6 +10,7 @@ const Sidebar = () => {
 
   const navItems = [
     { to: '/',           icon: PlusCircle, label: 'Tạo Fake Link' },
+    { to: '/links',      icon: List,       label: 'Quản lý Link' },
     { to: '/videos',     icon: Video,      label: 'Quản lý Video' },
     { to: '/affiliate',  icon: Link2,      label: 'Link Tiếp Thị' },
   ];

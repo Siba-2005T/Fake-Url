@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
 import CreateLinkPage from './pages/CreateLinkPage';
+import LinkManagerPage from './pages/LinkManagerPage';
 import VideoManagerPage from './pages/VideoManagerPage';
 import AffiliateManagerPage from './pages/AffiliateManagerPage';
 import UserManagerPage from './pages/UserManagerPage';
@@ -41,6 +42,7 @@ const DashboardLayout = () => (
     <main className="dashboard-main">
       <Routes>
         <Route path="/" element={<CreateLinkPage />} />
+        <Route path="/links" element={<LinkManagerPage />} />
         <Route path="/videos" element={<VideoManagerPage />} />
         <Route path="/affiliate" element={<AffiliateManagerPage />} />
         <Route path="/users" element={<AdminRoute><UserManagerPage /></AdminRoute>} />
