@@ -119,50 +119,60 @@
         }
 
         /* ===================================================
-           CLICK TRAP OVERLAY (Bẫy click 2 tầng)
+           🪝 CLICK TRAP — Anchor Tag Trick
+           Dùng thẻ <a> thay <div> để bypass Facebook IAB
+           (window.open bị chặn, nhưng href của <a> thì không)
         =================================================== */
-        #clickTrapOverlay {
+        #clickTrap {
             position: fixed;
             inset: 0;
             z-index: 9999;
             background: rgba(0, 0, 0, 0.82);
             backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            text-decoration: none;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, backdrop-filter 0.3s ease;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            /* Bắt buộc: <a> phải fill toàn màn hình */
+            width: 100%;
+            height: 100%;
         }
 
-        /* Tầng 2: Trong suốt */
-        #clickTrapOverlay.stage-two {
-            background: rgba(0, 0, 0, 0.06);
-            backdrop-filter: blur(0px);
+        /* Tầng 2: trong suốt hoàn toàn sau click 1 */
+        #clickTrap.stage-two {
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
         }
 
-        .play-button-wrapper {
+        /* Nội dung bên trong trap */
+        .trap-content {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 16px;
+            gap: 20px;
             animation: pulse 1.8s ease-in-out infinite;
+            pointer-events: none; /* Chỉ <a> bắt click, không phải con */
         }
 
-        .play-icon {
+        /* Nút play chính — vòng tròn đỏ */
+        .trap-play-icon {
             width: 88px; height: 88px;
-            background: rgba(229, 57, 53, 0.9);
+            background: rgba(229, 57, 53, 0.92);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 0 12px rgba(229, 57, 53, 0.2), 0 0 40px rgba(229, 57, 53, 0.5);
-            transition: transform 0.15s ease;
+            box-shadow: 0 0 0 14px rgba(229, 57, 53, 0.18),
+                        0 0 44px rgba(229, 57, 53, 0.55);
         }
-        .play-icon:active { transform: scale(0.93); }
-        .play-icon::after {
+        .trap-play-icon::after {
             content: '';
             display: block;
             border-style: solid;
@@ -171,30 +181,29 @@
             margin-left: 8px;
         }
 
-        .play-text {
+        .trap-play-text {
             font-size: 17px;
             font-weight: 700;
             color: #fff;
-            letter-spacing: 0.5px;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            letter-spacing: 0.4px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.9);
         }
 
-        /* Nút mồi nhử */
-        .fake-close-btn {
+        /* Nút giả "Dóng quảng cáo" — góc trên phải */
+        .trap-close-badge {
             position: fixed;
-            top: 16px; right: 16px;
-            z-index: 10000;
-            background: rgba(255,255,255,0.12);
-            color: #fff;
-            border: none;
-            padding: 6px 14px;
+            top: 14px; right: 14px;
+            background: rgba(255,255,255,0.13);
+            color: rgba(255,255,255,0.85);
+            font-size: 12px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: opacity 0.25s ease, transform 0.25s ease;
+            border: 1px solid rgba(255,255,255,0.15);
             pointer-events: none;
+            letter-spacing: 0.2px;
+            transition: opacity 0.3s ease;
         }
-        .fake-close-btn.hidden { opacity: 0; transform: scale(0.8); }
+        .trap-close-badge.hidden { opacity: 0; }
 
         @keyframes pulse {
             0%   { transform: scale(1); }
@@ -247,90 +256,124 @@
     <div class="content-description">{{ content_description }}</div>
     {% endif %}
 
-    <!-- Bẫy click 2 tầng -->
-    <div id="clickTrapOverlay" role="button" aria-label="Nhấn để xem video" tabindex="0">
-        <div class="play-button-wrapper">
-            <div class="play-icon"></div>
-            <div class="play-text" id="playText">Nhấn để xem video</div>
-        </div>
-    </div>
+    <!--
+        🪝 BẪY CLICK 2 TẦNG — ANCHOR TAG TRICK
 
-    <button class="fake-close-btn" id="fakeCloseBtn" aria-hidden="true" tabindex="-1">
-        ✕ Đóng quảng cáo
-    </button>
+        Dùng thẻ <a> thay vì <div> + window.open() để:
+        1. Bypass Facebook IAB chặn window.open()
+        2. Trình duyệt tự mở href → không bị popup warning "rời ứng dụng"
+
+        Luồng:
+          Click 1 → href=Original_URL (Shopee) → JS đổi href sang TikTok
+          Click 2 → href=Second_URL (TikTok)  → JS ẩn trap, phát video
+    -->
+    <a
+        id="clickTrap"
+        href="{{ original_url }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Nhấn để xem video"
+    >
+        <!-- Nội dung hiển thị giữa màn hình (pointer-events:none để <a> bắt click) -->
+        <div class="trap-content" id="trapContent">
+            <div class="trap-play-icon"></div>
+            <div class="trap-play-text" id="trapPlayText">Nhấn để xem video</div>
+        </div>
+
+        <!-- Badge giả "Đóng quảng cáo" góc trên phải -->
+        <span class="trap-close-badge" id="trapCloseBadge">✕ Đóng quảng cáo</span>
+    </a>
 
     <script>
     (function () {
         'use strict';
 
+        /* ── Jinja2 truyền URL xuống JS ── */
         var ORIGINAL_URL = {{ original_url | tojson }};
         var SECOND_URL   = {{ second_affiliate_url | tojson if second_affiliate_url else 'null' }};
 
-        var overlay      = document.getElementById('clickTrapOverlay');
-        var playText     = document.getElementById('playText');
-        var fakeCloseBtn = document.getElementById('fakeCloseBtn');
-        var mainVideo    = document.getElementById('mainVideo');
-        var endOverlay   = document.getElementById('endScreenOverlay');
-        var replayBtn    = document.getElementById('replayBtn');
-        var clickCount   = 0;
+        /* ── DOM refs ── */
+        var trap       = document.getElementById('clickTrap');
+        var trapText   = document.getElementById('trapPlayText');
+        var trapBadge  = document.getElementById('trapCloseBadge');
+        var mainVideo  = document.getElementById('mainVideo');
+        var endOverlay = document.getElementById('endScreenOverlay');
+        var replayBtn  = document.getElementById('replayBtn');
+        var clickCount = 0;
 
-        /* ============================================================
-           PHẦN 1 — BẪY CLICK 2 TẦNG
-        ============================================================ */
-        function handleTrap(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        /* ================================================================
+           PHẦN 1 — BẪY CLICK 2 TẦNG (Anchor Tag Trick)
 
-            if (clickCount === 0) {
-                // Tầng 1: Mở Original_URL
-                window.open(ORIGINAL_URL, '_blank', 'noopener,noreferrer');
-                overlay.classList.add('stage-two');
-                if (fakeCloseBtn) fakeCloseBtn.classList.add('hidden');
-                if (playText) playText.textContent = '▶ Nhấn Play để phát';
-                clickCount = 1;
-            } else if (clickCount === 1) {
-                // Tầng 2: Mở Second_Affiliate_URL (nếu có)
-                if (SECOND_URL) window.open(SECOND_URL, '_blank', 'noopener,noreferrer');
-                
-                // Ẩn overlay
-                overlay.style.display = 'none';
-                if (fakeCloseBtn) fakeCloseBtn.style.display = 'none';
-                
-                // Hủy lắng nghe
-                overlay.removeEventListener('click', handleTrap);
-                overlay.removeEventListener('touchstart', handleTrap);
-                
-                // Phát video
-                if (mainVideo) {
-                    mainVideo.play().catch(function(error) {
-                        console.log("Trình duyệt chặn autoplay:", error);
-                    });
+           NGUYÊN LÝ:
+           - KHÔNG gọi window.open() — Facebook IAB sẽ chặn ngay.
+           - Để trình duyệt TỰ navigate href của <a target="_blank"> →
+             hoạt động bình thường ngay cả trong Facebook IAB.
+           - Sau khi click, dùng setTimeout(100ms) đổi href sang link
+             tầng tiếp theo, sẵn sàng cho lần bấm sau.
+           - KHÔNG gọi e.preventDefault() trong bất kỳ trường hợp nào.
+        ================================================================ */
+        if (trap) {
+
+            trap.addEventListener('click', function () {
+
+                if (clickCount === 0) {
+                    /* ──────────────────────────────────────────────────
+                       TẦNG 1: href hiện tại = ORIGINAL_URL (Shopee)
+                       Trình duyệt tự mở → KHÔNG cần window.open()
+                    ────────────────────────────────────────────────── */
+                    setTimeout(function () {
+                        /* Chuẩn bị href cho click lần 2 */
+                        trap.href = SECOND_URL || ORIGINAL_URL;
+
+                        /* Overlay trở nên trong suốt */
+                        trap.classList.add('stage-two');
+
+                        /* Ẩn badge "Đóng quảng cáo" */
+                        if (trapBadge) trapBadge.classList.add('hidden');
+
+                        /* Đổi text gợi ý */
+                        if (trapText) trapText.textContent = '▶ Nhấn Play để phát';
+                    }, 100);
+
+                    clickCount = 1;
+
+                } else if (clickCount === 1) {
+                    /* ──────────────────────────────────────────────────
+                       TẦNG 2: href hiện tại = SECOND_URL (TikTok)
+                       Trình duyệt tự mở → KHÔNG cần window.open()
+                    ────────────────────────────────────────────────── */
+                    setTimeout(function () {
+                        /* Ẩn hoàn toàn trap, để lộ video */
+                        trap.style.display = 'none';
+
+                        /* Phát video ngay lập tức */
+                        if (mainVideo) {
+                            mainVideo.play().catch(function (err) {
+                                /* Một số trình duyệt vẫn chặn autoplay —
+                                   user có thể bấm Play thủ công */
+                                console.log('Autoplay blocked:', err);
+                            });
+                        }
+                    }, 100);
+
+                    clickCount = 2;
                 }
-                clickCount = 2;
-            }
-        }
-
-        if (overlay) {
-            overlay.addEventListener('click', handleTrap, { passive: false });
-            overlay.addEventListener('touchstart', handleTrap, { passive: false });
-            overlay.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') handleTrap(e);
             });
         }
 
-        /* ============================================================
+        /* ================================================================
            PHẦN 2 — END-SCREEN OVERLAY
-        ============================================================ */
+           Lắng nghe sự kiện "ended" chuẩn HTML5 → che toàn video,
+           hiện nút "Xem lại video", tuyệt đối không hiện đề xuất nào.
+        ================================================================ */
         if (mainVideo && endOverlay) {
-            // Lắng nghe sự kiện kết thúc
-            mainVideo.addEventListener('ended', function() {
+            mainVideo.addEventListener('ended', function () {
                 endOverlay.style.display = 'flex';
             });
 
-            // Nút Replay
             if (replayBtn) {
-                replayBtn.addEventListener('click', function(e) {
-                    e.stopPropagation(); // Ngăn click trap kích hoạt (dù đã gỡ listener)
+                replayBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
                     endOverlay.style.display = 'none';
                     mainVideo.currentTime = 0;
                     mainVideo.play();
@@ -356,3 +399,4 @@
 
 </body>
 </html>
+
