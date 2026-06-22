@@ -192,46 +192,100 @@ def handle_redirect(slug: str):
 # ============================================================
 # ENDPOINT: POST /webhook/telegram
 # Nhận video từ Telegram bot để lưu trữ file_id
+# Hỗ trợ: message.video (nén) VÀ message.document (file gốc)
 # ============================================================
+
+# Lưu payload cuối cùng để debug
+_last_webhook_payload = {}
+
 @redirect_bp.route("/webhook/telegram", methods=["POST"])
 def telegram_webhook():
     """
     Nhận JSON từ Telegram Bot webhook.
-    Bóc tách message.video.file_id và message.caption.
-    """
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "message": "No data received"}), 400
 
-        # Telegram webhook gửi thông tin trong 'message' hoặc 'channel_post'
+    Telegram gửi video theo 2 dạng:
+    - message.video   : Video được Telegram nén (gửi dưới dạng video)
+    - message.document: File gốc không nén (gửi dưới dạng file/tài liệu)
+                        mime_type sẽ là 'video/mp4' hoặc 'video/*'
+    """
+    global _last_webhook_payload
+    try:
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"success": True, "message": "No JSON data"}), 200
+
+        # Lưu lại để debug
+        _last_webhook_payload = data
+        current_app.logger.info(f"[Telegram Webhook] Received update: {str(data)[:500]}")
+
+        # Hỗ trợ cả message lẫn channel_post
         message = data.get("message") or data.get("channel_post")
         if not message:
             return jsonify({"success": True, "message": "Not a message update"}), 200
 
-        video = message.get("video")
-        if not video:
-            return jsonify({"success": True, "message": "No video in message"}), 200
+        # ── Ưu tiên 1: message.video (video nén chuẩn) ──
+        media = message.get("video")
+        media_type = "video"
 
-        file_id = video.get("file_id")
-        caption = message.get("caption") or video.get("file_name") or f"Telegram Video {file_id[:8]}"
+        # ── Ưu tiên 2: message.document có mime video/* ──
+        if not media:
+            doc = message.get("document")
+            if doc:
+                mime = doc.get("mime_type", "")
+                if mime.startswith("video/"):
+                    media = doc
+                    media_type = "document"
 
-        if file_id:
-            # Kiểm tra xem video đã tồn tại chưa
-            existing = TelegramVideo.query.filter_by(file_id=file_id).first()
-            if not existing:
-                new_video = TelegramVideo(file_id=file_id, caption=caption)
-                db.session.add(new_video)
-                db.session.commit()
-                return jsonify({"success": True, "message": "Video saved successfully"}), 200
-            else:
-                return jsonify({"success": True, "message": "Video already exists"}), 200
+        if not media:
+            current_app.logger.info(
+                f"[Telegram Webhook] Message có keys: {list(message.keys())} — không phải video"
+            )
+            return jsonify({"success": True, "message": "No video or video document found"}), 200
 
-        return jsonify({"success": False, "message": "No file_id found"}), 400
+        file_id = media.get("file_id")
+        if not file_id:
+            return jsonify({"success": True, "message": "No file_id"}), 200
+
+        # Lấy caption: ưu tiên caption của message, sau đó file_name
+        caption = (
+            message.get("caption")
+            or media.get("file_name")
+            or f"Video [{media_type}] {file_id[:10]}"
+        )
+
+        current_app.logger.info(
+            f"[Telegram Webhook] Saving {media_type}: file_id={file_id[:20]}... caption={caption}"
+        )
+
+        # Lưu vào DB (bỏ qua nếu đã tồn tại)
+        existing = TelegramVideo.query.filter_by(file_id=file_id).first()
+        if not existing:
+            new_video = TelegramVideo(file_id=file_id, caption=caption)
+            db.session.add(new_video)
+            db.session.commit()
+            return jsonify({"success": True, "message": f"Saved: {caption}"}), 200
+        else:
+            return jsonify({"success": True, "message": "Already exists"}), 200
+
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"telegram_webhook error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        current_app.logger.error(f"[Telegram Webhook] Error: {e}", exc_info=True)
+        # Trả 200 để Telegram không retry liên tục
+        return jsonify({"ok": True}), 200
+
+
+# ============================================================
+# ENDPOINT: GET /api/telegram/last-payload
+# Xem payload cuối cùng Telegram đã gửi về (debug)
+# ============================================================
+@redirect_bp.route("/api/telegram/last-payload", methods=["GET"])
+def telegram_last_payload():
+    """Trả về payload cuối cùng Telegram gửi về webhook — dùng để debug cấu trúc JSON."""
+    return jsonify({
+        "last_payload": _last_webhook_payload,
+        "hint": "Gửi một video cho bot, sau đó gọi lại endpoint này để xem cấu trúc JSON Telegram gửi về"
+    }), 200
+
 
 
 # ============================================================
