@@ -466,25 +466,6 @@ def disable_telegram_webhook():
 
 
 
-# ============================================================
-# ENDPOINT: GET /api/telegram-videos
-# Lấy danh sách video Telegram đã nhận được
-# ============================================================
-@redirect_bp.route("/api/telegram-videos", methods=["GET"])
-def get_telegram_videos():
-    """
-    Lấy danh sách video từ bảng telegram_videos để hiển thị trong admin combobox.
-    """
-    try:
-        videos = TelegramVideo.query.order_by(TelegramVideo.created_at.desc()).all()
-        return jsonify({
-            "success": True,
-            "data": [v.to_dict() for v in videos]
-        }), 200
-    except Exception as e:
-        current_app.logger.error(f"get_telegram_videos error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
 
 # ============================================================
 # ENDPOINT: GET /api/check-slug/<slug>
