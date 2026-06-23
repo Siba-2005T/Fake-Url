@@ -230,3 +230,31 @@ def track_affiliate_click(link_id: int):
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+# ============================================================
+# DEBUG: GET /api/debug-isolation - Kiểm tra data isolation
+# ============================================================
+@media_bp.route("/debug-isolation", methods=["GET"])
+@jwt_required()
+def debug_isolation():
+    """Debug endpoint: xem uid từ token và video count sau filter."""
+    try:
+        raw_identity = get_jwt_identity()
+        uid = int(raw_identity)
+        
+        # Query CÓ filter
+        filtered = TelegramVideo.query.filter_by(user_id=uid).all()
+        
+        # Query KHÔNG filter (để so sánh)
+        all_videos = TelegramVideo.query.all()
+        
+        return jsonify({
+            "token_identity_raw": raw_identity,
+            "uid_parsed": uid,
+            "videos_for_this_user": len(filtered),
+            "total_videos_in_db": len(all_videos),
+            "this_user_captions": [v.caption for v in filtered],
+            "all_captions_with_uid": [{"id": v.id, "caption": v.caption, "user_id": v.user_id} for v in all_videos],
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
