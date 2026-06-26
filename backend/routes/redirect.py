@@ -235,30 +235,14 @@ def handle_redirect(slug: str):
         bot_resp.headers["Cache-Control"] = "public, max-age=300"
         return bot_resp
 
-    video_url = None
-    if link.video_source == 'telegram':
-        if link.telegram_file_id:
-            bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-            if bot_token:
-                try:
-                    # Gọi Telegram API getFile
-                    tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
-                    resp = requests.get(tg_api_url, timeout=5)
-                    data = resp.json()
-                    if data.get("ok") and "result" in data:
-                        file_path = data["result"].get("file_path")
-                        if file_path:
-                            # Construct link trực tiếp
-                            video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
-                except Exception as e:
-                    current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
-    else:
-        # direct source
-        video_url = link.direct_video_url
+    # ──────────────────────────────────────────────────────────
+    # BƯỚC 3: Người dùng thật → Click_count + Video + landing.html
+    # Không còn Force Breakout. Mọi trình duyệt (Facebook IAB
+    # Android, iOS, Chrome, Safari) đều vào cùng một landing page.
+    # Cơ chế bypass Facebook IAB được xử lý ở HTML/JS
+    # bằng thẻ <a target="_top"> — không dùng Intent redirect.
+    # ──────────────────────────────────────────────────────────
 
-    # ──────────────────────────────────────────────────────────
-    # BƯỚC 3: Người dùng thật → Click_count + Video + Breakout
-    # ──────────────────────────────────────────────────────────
     # Tăng click_count (chống spam bằng Cookie)
     cookie_key = f"viewed_{slug}"
     has_viewed = request.cookies.get(cookie_key)
@@ -269,39 +253,26 @@ def handle_redirect(slug: str):
         except Exception:
             db.session.rollback()
 
-    # Xử lý video URL
-    fb_info = detect_facebook_browser(user_agent)
-    is_facebook_ios = False  # mặc định: không phải Facebook iOS
+    # ── Resolve video URL ──
+    video_url = None
+    if link.video_source == 'telegram':
+        if link.telegram_file_id:
+            bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+            if bot_token:
+                try:
+                    tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
+                    resp = requests.get(tg_api_url, timeout=5)
+                    data = resp.json()
+                    if data.get("ok") and "result" in data:
+                        file_path = data["result"].get("file_path")
+                        if file_path:
+                            video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+                except Exception as e:
+                    current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
+    else:
+        video_url = link.direct_video_url
 
-    if fb_info['is_facebook'] and not is_bot_request(user_agent):
-        if fb_info['is_android']:
-            # ── ANDROID: Redirect sang Intent Chrome ──
-            # Intent URI bướộc thiết bị mở trang bằng Chrome ứng dụng,
-            # bỏ qua hoàn toàn webview của Facebook.
-            # package=com.android.chrome → AOSP Chrome
-            # Nếu không có Chrome, fallback browser của AOSP.
-            intent_url = (
-                f"intent://{request.host}/{slug}"
-                f"#Intent;scheme=https;package=com.android.chrome;"
-                f"S.browser_fallback_url=https://{request.host}/{slug};end"
-            )
-            current_app.logger.info(
-                f"[Breakout] Android Facebook IAB → Intent redirect: {intent_url[:80]}"
-            )
-            return redirect(intent_url, 302)
-
-        elif fb_info['is_ios']:
-            # ── IOS: Truyền cờ vào template, hiện màn hướng dẫn thủ công ──
-            # iOS không hỗ trợ Intent URI, không có cách tự động breakout.
-            # Giải pháp duy nhất: Hướng dẫn người dùng thủ công mở Safari.
-            is_facebook_ios = True
-            current_app.logger.info(
-                f"[Breakout] iOS Facebook IAB → Hiện màn hướng dẫn"
-            )
-
-    # --------------------------------------------------------
-    # Resolve URL & ID cho Bẫy Click 2 tầng (dùng FK v2 ưu tiên)
-    # --------------------------------------------------------
+    # ── Resolve affiliate link URL & ID cho bẫy 2 tầng ──
     if link.link1_id and link.link1:
         link1_url = link.link1.url
         link1_id  = link.link1_id
@@ -318,39 +289,31 @@ def handle_redirect(slug: str):
         aff2 = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
         link2_id  = aff2.id if aff2 else ""
 
-    # --------------------------------------------------------
-    # Render và trả về HTML
-    # --------------------------------------------------------
+    # ── Render landing.html ──
     html_content = render_template(
         "landing.html",
         og_title=og_title,
         og_description=og_description,
-        og_image=og_image_resolved,    # ưu tiên: og_image_url > image_path > placeholder
+        og_image=og_image_resolved,
         og_url=current_url,
         link1_url=link1_url,
         link1_id=link1_id,
         link2_url=link2_url,
         link2_id=link2_id,
         slug_id=link.custom_slug,
-        is_facebook_ios=is_facebook_ios,
         original_url=link1_url,
         second_affiliate_url=link2_url,
         final_video_url=video_url,
         content_description=link.content_description
     )
 
-    # Trả về HTML với status 200
-    # Content-Type: text/html để browser render đúng
     response = current_app.make_response(html_content)
     response.headers["Content-Type"] = "text/html; charset=utf-8"
-
-    # Ngăn cache để OG tags luôn được cập nhật mới nhất
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-    
-    # Nếu chưa xem, set cookie 24h
-    if not is_bot_request(user_agent) and not has_viewed:
+
+    if not has_viewed:
         response.set_cookie(cookie_key, '1', max_age=86400)
 
     return response
