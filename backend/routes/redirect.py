@@ -200,12 +200,14 @@ def handle_redirect(slug: str):
         og_description=og_description,
         og_image=og_image_url,
         og_url=current_url,
-        # Biến chuẩn mới cho Bẫy Click 2 tầng
+        # Biến chuẩn cho Bẫy Click 2 tầng
         link1_url=link1_url,
         link1_id=link1_id,
         link2_url=link2_url,
         link2_id=link2_id,
-        # Backward-compat (giữ lại để không vỡ nếu template cũ)
+        # slug_id: key duy nhất cho localStorage (mỗi cloak link có key riêng)
+        slug_id=link.custom_slug,
+        # Backward-compat
         original_url=link1_url,
         second_affiliate_url=link2_url,
         final_video_url=video_url,

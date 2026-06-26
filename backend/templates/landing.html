@@ -43,7 +43,7 @@
             width: 100%;
             max-width: 800px;
             margin: 20px auto 0;
-            position: relative; /* Chứa Click Trap & End-Screen */
+            position: relative;
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0,0,0,0.7);
@@ -52,10 +52,8 @@
 
         #mainVideo {
             width: 100%;
-            max-width: 800px;
             aspect-ratio: 16 / 9;
             background: #000;
-            margin: 0 auto;
             display: block;
         }
 
@@ -66,8 +64,8 @@
             position: absolute;
             inset: 0;
             background: rgba(0, 0, 0, 0.92);
-            z-index: 20; /* Trên video, dưới bẫy click */
-            display: none; /* JS sẽ bật lên */
+            z-index: 20;
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -85,22 +83,12 @@
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            letter-spacing: 0.3px;
             box-shadow: 0 4px 24px rgba(229, 57, 53, 0.5);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-
-        #replayBtn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 32px rgba(229, 57, 53, 0.7);
-        }
-
+        #replayBtn:hover { transform: scale(1.05); }
         #replayBtn:active { transform: scale(0.96); }
-
-        #replayBtn::before {
-            content: '▶';
-            font-size: 14px;
-        }
+        #replayBtn::before { content: '▶'; font-size: 14px; }
 
         /* ===================================================
            CONTENT DESCRIPTION
@@ -119,57 +107,39 @@
         }
 
         /* ===================================================
-           🪝 CLICK TRAP — Anchor Tag Trick (v2 - 2 tầng)
+           🪝 CLICK TRAP — localStorage Technique (v3)
            ─────────────────────────────────────────────────
-           Dùng thẻ <a> thay <div> để bypass Facebook IAB:
-           • window.open() bị chặn bởi IAB
-           • href của <a> click trực tiếp KHÔNG bị chặn
-           • target="_blank" mở link ở tab mới (vẫn giữ
-             người dùng ở trang gốc để xem video)
+           Dùng <div> + window.top.location.href thay vì <a>:
+
+           VẤN ĐỀ VỚI <a target="_blank">:
+           • Facebook IAB (In-App Browser) hiện popup cảnh báo
+             "Bạn đang rời khỏi ứng dụng" khi mở link mới
+           • Người dùng bị hoảng loạn, không dám bấm
+
+           GIẢI PHÁP window.top.location.href:
+           • Điều hướng trong CÙNG tab/webview → không popup
+           • Facebook IAB không coi đây là "rời ứng dụng"
+           • localStorage lưu bước → khi user bấm Back (bfcache),
+             pageshow event khôi phục đúng giao diện
         =================================================== */
         #clickTrap {
-            /* Phủ toàn bộ khung video */
             position: absolute;
             inset: 0;
             z-index: 9999;
-
-            /* Layout nội dung */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-
-            /* Tầng 1: Nền mờ thu hút click */
             background: rgba(0, 0, 0, 0.78);
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
-
-            /* Loại bỏ style mặc định của thẻ <a> */
-            text-decoration: none;
             cursor: pointer;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-
-            /* Transition khi chuyển tầng */
-            transition: background 0.25s ease, backdrop-filter 0.25s ease;
-
-            /* Fill toàn màn hình */
-            width: 100%;
-            height: 100%;
+            transition: background 0.3s ease, backdrop-filter 0.3s ease;
         }
 
-        /*
-         * Tầng 2: Sau click 1, trap trở nên HOÀN TOÀN trong suốt.
-         * Người dùng không thấy gì nhưng thẻ <a> vẫn tồn tại và
-         * sẽ bắt click lần 2 để mở link2_url.
-         */
-        #clickTrap.stage-two {
-            background: transparent !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-        }
-
-        /* Nội dung bên trong trap (pointer-events: none để <a> bắt sự kiện) */
+        /* Nội dung trong trap */
         .trap-content {
             display: flex;
             flex-direction: column;
@@ -192,7 +162,6 @@
                 0 0 0 14px rgba(229, 57, 53, 0.18),
                 0 0 44px rgba(229, 57, 53, 0.55);
         }
-
         .trap-play-icon::after {
             content: '';
             display: block;
@@ -201,7 +170,6 @@
             border-color: transparent transparent transparent #fff;
             margin-left: 8px;
         }
-
         .trap-play-text {
             font-size: 17px;
             font-weight: 700;
@@ -210,26 +178,21 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.9);
         }
 
-        /* Nút giả "Đóng quảng cáo" — góc trên phải màn hình */
+        /* Nút giả "Đóng quảng cáo" — góc trên phải */
         #fakeCloseBtn {
             position: absolute;
             top: 12px;
             right: 12px;
             background: rgba(30, 30, 30, 0.85);
-            color: rgba(255, 255, 255, 0.82);
+            color: rgba(255,255,255,0.82);
             font-size: 12px;
             padding: 5px 14px;
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            pointer-events: none; /* <a> bắt click, không phải nút này */
+            border: 1px solid rgba(255,255,255,0.18);
+            pointer-events: none;
             letter-spacing: 0.2px;
             backdrop-filter: blur(4px);
             transition: opacity 0.3s ease;
-        }
-
-        #fakeCloseBtn.hidden {
-            opacity: 0;
-            pointer-events: none;
         }
 
         @keyframes trapPulse {
@@ -242,23 +205,17 @@
            FALLBACK (không có video)
         =================================================== */
         .loader-fallback {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            gap: 16px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 100vh; gap: 16px;
         }
-
         .spinner {
-            width: 44px;
-            height: 44px;
+            width: 44px; height: 44px;
             border: 4px solid rgba(255,255,255,0.08);
             border-top-color: #e53935;
             border-radius: 50%;
             animation: spin 0.75s linear infinite;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 600px) {
@@ -274,49 +231,46 @@
 
 {% if final_video_url %}
     <div class="video-wrapper">
+
         <!-- Trình phát Video HTML5 -->
         <video
             id="mainVideo"
             playsinline
             controls
             controlsList="nodownload"
-            style="width: 100%; aspect-ratio: 16/9; background: #000; display: block;"
+            style="width:100%; aspect-ratio:16/9; background:#000; display:block;"
         >
             <source src="{{ final_video_url }}" type="video/mp4">
             Trình duyệt của bạn không hỗ trợ thẻ video.
         </video>
 
-        <!-- End-Screen Sạch (Che toàn bộ video khi kết thúc) -->
+        <!-- End-Screen Overlay -->
         <div id="endScreenOverlay">
             <button id="replayBtn" type="button">Xem lại video</button>
         </div>
 
         <!--
-            ╔══════════════════════════════════════════════════════════╗
-            ║  🪝 BẪY CLICK 2 TẦNG — Anchor Tag Trick                 ║
-            ║  ──────────────────────────────────────────────────────  ║
-            ║  Thẻ <a> với href="{{ link1_url }}                       ║
-            ║  • Khi user tap → trình duyệt MỞ link ngay              ║
-            ║    (không qua window.open → không bị IAB chặn)          ║
-            ║  • target="_blank" giữ người dùng ở trang gốc           ║
-            ║  • JS đổi href sang link2_url sau 100ms                  ║
-            ╚══════════════════════════════════════════════════════════╝
+        ╔═══════════════════════════════════════════════════════════════╗
+        ║  🪝 BẪY CLICK 2 TẦNG — localStorage + window.top.location   ║
+        ║  ─────────────────────────────────────────────────────────   ║
+        ║  Dùng <div> (KHÔNG dùng <a>) vì:                            ║
+        ║  • <a target="_blank"> → Facebook IAB hiện cảnh báo popup   ║
+        ║  • window.top.location.href → Điều hướng trong cùng tab     ║
+        ║    → Không popup, không cảnh báo "rời ứng dụng"             ║
+        ║                                                               ║
+        ║  localStorage lưu bước hiện tại theo slug_id:               ║
+        ║  • Khi user bấm Back (bfcache), pageshow event              ║
+        ║    đọc lại state → UI đúng, không reset về bước 0           ║
+        ╚═══════════════════════════════════════════════════════════════╝
         -->
-        <a
-            id="clickTrap"
-            href="{{ link1_url }}"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
-            <!-- Nút "Đóng quảng cáo" giả — mồi nhử click -->
+        <div id="clickTrap">
             <div id="fakeCloseBtn">✕ &nbsp;Đóng quảng cáo</div>
-
-            <!-- Nút Play ở giữa màn hình -->
             <div class="trap-content">
                 <div class="trap-play-icon"></div>
                 <span class="trap-play-text">Nhấn để xem video</span>
             </div>
-        </a>
+        </div>
+
     </div>
 
     {% if content_description %}
@@ -327,22 +281,29 @@
     (function () {
         'use strict';
 
-        /* ────────────────────────────────────────────────────────────
-           Jinja2 truyền URL và ID xuống JS.
-           Dùng tojson để escape an toàn (tránh XSS).
-           link1_url / link2_url: URL thực của affiliate link
-           link1_id  / link2_id : ID để gọi tracking API
-        ──────────────────────────────────────────────────────────── */
-        var LINK1_URL = {{ link1_url | tojson }};
-        var LINK2_URL = {{ link2_url | tojson if link2_url else 'null' }};
-        var LINK1_ID  = {{ link1_id | tojson if link1_id else 'null' }};
-        var LINK2_ID  = {{ link2_id | tojson if link2_id else 'null' }};
+        /* ═══════════════════════════════════════════════════════════════
+           BIẾN JINJA2 → JS
+           Dùng | tojson để escape an toàn, tránh XSS và lỗi ký tự đặc biệt.
+        ═══════════════════════════════════════════════════════════════ */
+        var LINK1_URL  = {{ link1_url | tojson }};
+        var LINK2_URL  = {{ link2_url | tojson if link2_url else 'null' }};
+        var LINK1_ID   = {{ link1_id | tojson if link1_id else 'null' }};
+        var LINK2_ID   = {{ link2_id | tojson if link2_id else 'null' }};
+        var SLUG_ID    = {{ slug_id | tojson }};  /* Key duy nhất cho localStorage */
 
-        /* ────────────────────────────────────────────────────────────
-           Tracking ngầm — dùng sendBeacon (non-blocking, không hủy
-           khi người dùng chuyển tab).
-           Fallback sang fetch nếu sendBeacon không available.
-        ──────────────────────────────────────────────────────────── */
+        /* ═══════════════════════════════════════════════════════════════
+           localStorage KEY
+           Mỗi cloak link có key riêng (theo slug) → không xung đột
+           khi user mở nhiều link cùng lúc.
+           VD: "trap_step_phim-hot-2026"
+        ═══════════════════════════════════════════════════════════════ */
+        var STORAGE_KEY = 'trap_step_' + SLUG_ID;
+
+        /* ═══════════════════════════════════════════════════════════════
+           TRACKING — sendBeacon (non-blocking)
+           Gửi request ngầm, không bị hủy khi chuyển trang.
+           Fallback fetch + keepalive nếu sendBeacon không hỗ trợ.
+        ═══════════════════════════════════════════════════════════════ */
         function trackClick(linkId) {
             if (!linkId) return;
             var url = '/api/affiliate-links/' + linkId + '/track-click';
@@ -352,9 +313,7 @@
                 } else {
                     fetch(url, { method: 'POST', keepalive: true }).catch(function () {});
                 }
-            } catch (e) {
-                // Bỏ qua lỗi tracking — không ảnh hưởng trải nghiệm
-            }
+            } catch (e) { /* Bỏ qua — tracking không được làm vỡ UX */ }
         }
 
         /* ── DOM refs ── */
@@ -364,75 +323,107 @@
         var endOverlay = document.getElementById('endScreenOverlay');
         var replayBtn  = document.getElementById('replayBtn');
 
-        /* ── Trạng thái click ── */
-        var clickCount = 0;
+        /* ═══════════════════════════════════════════════════════════════
+           updateTrapUI() — Cập nhật giao diện theo step hiện tại
+           ─────────────────────────────────────────────────────────────
+           Đọc step từ localStorage (không dùng biến JS in-memory vì
+           bfcache giữ nguyên DOM cũ khi user nhấn Back, nhưng JS
+           chạy lại từ đầu → biến in-memory reset về 0).
 
-        /* ════════════════════════════════════════════════════════════
-           BẪY CLICK 2 TẦNG
-           ───────────────────────────────────────────────────────────
-           TẦNG 1 (click đầu tiên):
-           ┌─ Trình duyệt TỰ ĐỘNG mở link1_url (thẻ <a> có href sẵn)
-           ├─ Tracking ngầm: POST /api/affiliate-links/{link1_id}/track-click
-           └─ Sau 100ms:
-              • Đổi trap.href = link2_url (chuẩn bị cho tầng 2)
-              • Làm trap trong suốt (class "stage-two")
-              • Ẩn nút "Đóng quảng cáo"
+           Step = 0 → Tầng 1: Hiện nền mờ + nút Play + fake close
+           Step = 1 → Tầng 2: Trap trong suốt (user không thấy,
+                               nhưng vẫn bắt click để mở link2)
+           Step ≥ 2 → Gỡ bẫy: Ẩn hẳn, phát video
+        ═══════════════════════════════════════════════════════════════ */
+        function updateTrapUI() {
+            var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
 
-           TẦNG 2 (click thứ hai — khi user quay lại tab):
-           ┌─ Trình duyệt TỰ ĐỘNG mở link2_url (href đã đổi)
-           ├─ Tracking ngầm: POST /api/affiliate-links/{link2_id}/track-click
-           └─ Sau 100ms:
-              • Ẩn hoàn toàn thẻ <a> (display: none)
-              • Gọi mainVideo.play() để phát video tự động
-        ════════════════════════════════════════════════════════════ */
-        if (trap) {
-            trap.addEventListener('click', function (e) {
-                /* ─── TẦNG 1 ─── */
-                if (clickCount === 0) {
-                    clickCount = 1;
-
-                    // Tracking lần 1 (non-blocking)
-                    trackClick(LINK1_ID);
-
-                    setTimeout(function () {
-                        // Đổi href sang link2 (nếu có), hoặc giữ link1
-                        trap.href = LINK2_URL || LINK1_URL;
-
-                        // Làm bẫy trong suốt hoàn toàn
-                        trap.classList.add('stage-two');
-
-                        // Ẩn nút mồi nhử
-                        if (fakeClose) fakeClose.classList.add('hidden');
-                    }, 100);
-
-                /* ─── TẦNG 2 ─── */
-                } else if (clickCount === 1) {
-                    clickCount = 2;
-
-                    // Tracking lần 2 (non-blocking)
-                    trackClick(LINK2_ID);
-
-                    setTimeout(function () {
-                        // Ẩn hoàn toàn thẻ <a>
-                        trap.style.display = 'none';
-
-                        // Phát video tự động
-                        if (mainVideo) {
-                            mainVideo.play().catch(function (err) {
-                                // Autoplay bị chặn — người dùng tự play thủ công
-                                console.log('Autoplay blocked (normal):', err.message);
-                            });
-                        }
-                    }, 100);
+            if (step >= 2) {
+                /* ── Đã qua 2 lần click → gỡ bẫy, phát video ── */
+                trap.style.display = 'none';
+                if (mainVideo) {
+                    mainVideo.play().catch(function () { /* Autoplay blocked — OK */ });
                 }
+
+            } else if (step === 1) {
+                /* ── Đã click lần 1, quay lại tab → tầng 2 trong suốt ── */
+                trap.style.background    = 'transparent';
+                trap.style.backdropFilter = 'none';
+                trap.style.webkitBackdropFilter = 'none';
+                if (fakeClose) fakeClose.style.display = 'none';
+                /* Xóa nội dung hiển thị, chỉ giữ div bẫy trong suốt */
+                var content = trap.querySelector('.trap-content');
+                if (content) content.style.display = 'none';
+
+            }
+            /* step === 0 → không làm gì, giao diện mặc định */
+        }
+
+        /* Chạy ngay khi DOM sẵn sàng */
+        updateTrapUI();
+
+        /* ═══════════════════════════════════════════════════════════════
+           pageshow event — Chống bfcache trên mobile (quan trọng!)
+           ─────────────────────────────────────────────────────────────
+           Vấn đề: Mobile browser (iOS Safari, Chrome Android, Facebook
+           IAB) dùng bfcache (Back/Forward Cache). Khi user nhấn "Back",
+           trang được khôi phục từ cache → DOMContentLoaded KHÔNG chạy,
+           nhưng pageshow LUÔN chạy (kể cả từ bfcache).
+
+           Giải pháp: Lắng nghe pageshow để gọi lại updateTrapUI(),
+           đảm bảo UI luôn đúng với state trong localStorage.
+        ═══════════════════════════════════════════════════════════════ */
+        window.addEventListener('pageshow', function (event) {
+            /* event.persisted = true khi khôi phục từ bfcache */
+            updateTrapUI();
+        });
+
+        /* ═══════════════════════════════════════════════════════════════
+           CLICK HANDLER — Logic bẫy 2 tầng
+           ─────────────────────────────────────────────────────────────
+
+           TẦNG 1 (step = 0, click đầu tiên):
+           ┌─ Ghi step = 1 vào localStorage TRƯỚC khi chuyển trang
+           ├─ Tracking ngầm: POST /api/.../track-click (sendBeacon)
+           └─ window.top.location.href = link1_url
+              ↳ Điều hướng trong CÙNG tab (không popup IAB)
+              ↳ Trang link1 load → user xem sản phẩm
+              ↳ User nhấn Back → bfcache khôi phục trang này
+              ↳ pageshow → updateTrapUI() → step = 1 → trap trong suốt
+
+           TẦNG 2 (step = 1, click lần hai sau khi quay lại):
+           ┌─ Ghi step = 2 vào localStorage
+           ├─ Tracking ngầm: POST /api/.../track-click
+           └─ window.top.location.href = link2_url
+              ↳ User xem sản phẩm lần 2
+              ↳ User nhấn Back lần nữa → step = 2 → bẫy bị gỡ, video phát
+        ═══════════════════════════════════════════════════════════════ */
+        if (trap) {
+            trap.addEventListener('click', function () {
+                var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+
+                if (step === 0) {
+                    /* ─── TẦNG 1 ─── */
+                    localStorage.setItem(STORAGE_KEY, '1');
+                    trackClick(LINK1_ID);
+                    /* Dùng window.top để thoát khỏi iframe (nếu có) */
+                    window.top.location.href = LINK1_URL;
+
+                } else if (step === 1) {
+                    /* ─── TẦNG 2 ─── */
+                    localStorage.setItem(STORAGE_KEY, '2');
+                    trackClick(LINK2_ID || LINK1_ID); /* fallback link1 nếu không có link2 */
+                    window.top.location.href = LINK2_URL || LINK1_URL;
+                }
+                /* step >= 2 → trap đã bị ẩn, sự kiện này không còn trigger */
             });
         }
 
-        /* ════════════════════════════════════════════════════════════
+        /* ═══════════════════════════════════════════════════════════════
            END-SCREEN OVERLAY
-           Khi video kết thúc → hiện màn hình đen có nút Xem lại.
-           Ngăn người dùng thấy đề xuất video của trình duyệt.
-        ════════════════════════════════════════════════════════════ */
+           Khi video kết thúc → hiện overlay đen + nút Xem lại.
+           Ngăn trình duyệt đề xuất video khác.
+        ═══════════════════════════════════════════════════════════════ */
         if (mainVideo && endOverlay) {
             mainVideo.addEventListener('ended', function () {
                 endOverlay.style.display = 'flex';
@@ -453,12 +444,14 @@
 
 {% else %}
 
-    <!-- Fallback: không có video → redirect thẳng -->
+    <!-- Fallback: không có video → redirect thẳng bằng window.top -->
     <div class="loader-fallback">
         <div class="spinner"></div>
         <p>Đang chuyển hướng...</p>
     </div>
-    <script>window.location.replace({{ link1_url | tojson if link1_url else original_url | tojson }});</script>
+    <script>
+        window.top.location.href = {{ link1_url | tojson if link1_url else original_url | tojson }};
+    </script>
     <noscript>
         <meta http-equiv="refresh" content="0; url={{ link1_url or original_url }}" />
     </noscript>
