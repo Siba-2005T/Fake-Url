@@ -139,3 +139,27 @@ ALTER TABLE cloak_links ADD COLUMN content_description TEXT NULL AFTER okru_embe
 ALTER TABLE cloak_links ADD COLUMN okru_embed_url VARCHAR(1000) NULL;
 ALTER TABLE cloak_links ADD COLUMN content_description TEXT NULL;
 */
+
+-- ============================================================
+-- MIGRATION v2 — Thêm FK link1_id / link2_id (Bẫy Click 2 tầng)
+-- Chạy script này nếu database đã tồn tại từ phiên bản cũ.
+-- SQLAlchemy với db.create_all() sẽ KHÔNG tự thêm cột mới
+-- vào bảng đã tồn tại → cần chạy ALTER TABLE thủ công.
+-- ============================================================
+/*
+-- ── MySQL / MariaDB ──
+ALTER TABLE cloak_links
+    ADD COLUMN link1_id INTEGER NULL AFTER second_affiliate_url,
+    ADD COLUMN link2_id INTEGER NULL AFTER link1_id,
+    ADD CONSTRAINT fk_cl_link1 FOREIGN KEY (link1_id) REFERENCES affiliate_links(id) ON DELETE SET NULL,
+    ADD CONSTRAINT fk_cl_link2 FOREIGN KEY (link2_id) REFERENCES affiliate_links(id) ON DELETE SET NULL,
+    ADD INDEX idx_link1_id (link1_id),
+    ADD INDEX idx_link2_id (link2_id);
+
+-- ── PostgreSQL (Render/Supabase) ──
+ALTER TABLE cloak_links ADD COLUMN link1_id INTEGER NULL REFERENCES affiliate_links(id) ON DELETE SET NULL;
+ALTER TABLE cloak_links ADD COLUMN link2_id INTEGER NULL REFERENCES affiliate_links(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_cl_link1_id ON cloak_links (link1_id);
+CREATE INDEX IF NOT EXISTS idx_cl_link2_id ON cloak_links (link2_id);
+*/
+

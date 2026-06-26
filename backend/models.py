@@ -61,13 +61,17 @@ class CloakLink(db.Model):
     Model đại diện cho một Cloak Link.
     Mỗi bản ghi = một link được rút gọn/che giấu với
     OG metadata tùy chỉnh cho mạng xã hội.
+
+    Cập nhật v2: Dùng link1_id / link2_id (FK → affiliate_links)
+    thay vì lưu URL thô. original_url và second_affiliate_url
+    được giữ lại để backward-compatible với data cũ.
     """
 
     __tablename__ = "cloak_links"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
-    original_url = db.Column(db.Text, nullable=False)
+    original_url = db.Column(db.Text, nullable=True)   # Giữ lại cho backward-compat
     custom_slug = db.Column(db.String(255), unique=True, nullable=False, index=True)
     custom_domain = db.Column(db.String(255), nullable=True)
     og_title = db.Column(db.String(500), nullable=True)
@@ -76,13 +80,20 @@ class CloakLink(db.Model):
     video_source = db.Column(db.String(50), default='direct', nullable=True)
     direct_video_url = db.Column(db.String(2083), nullable=True)
     content_description = db.Column(db.Text, nullable=True)
-    second_affiliate_url = db.Column(db.String(2000), nullable=True)
+    second_affiliate_url = db.Column(db.String(2000), nullable=True)  # Giữ lại backward-compat
+    # ── Cột mới v2: FK trỏ đến bảng affiliate_links ──
+    link1_id = db.Column(db.Integer, db.ForeignKey("affiliate_links.id"), nullable=True, index=True)
+    link2_id = db.Column(db.Integer, db.ForeignKey("affiliate_links.id"), nullable=True, index=True)
     image_path = db.Column(db.Text, nullable=True)
     image_public_id = db.Column(db.String(500), nullable=True)
     click_count = db.Column(db.Integer, default=0, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    # Relationships ngược về AffiliateLink
+    link1 = db.relationship("AffiliateLink", foreign_keys=[link1_id])
+    link2 = db.relationship("AffiliateLink", foreign_keys=[link2_id])
 
     def get_image_url(self, base_url: str = "") -> str | None:
         if not self.image_path:
@@ -105,6 +116,11 @@ class CloakLink(db.Model):
             "direct_video_url": self.direct_video_url,
             "content_description": self.content_description,
             "second_affiliate_url": self.second_affiliate_url,
+            # Cột mới v2
+            "link1_id": self.link1_id,
+            "link2_id": self.link2_id,
+            "link1_url": self.link1.url if self.link1 else None,
+            "link2_url": self.link2.url if self.link2 else None,
             "image_path": self.image_path,
             "image_url": self.get_image_url(base_url),
             "click_count": self.click_count,

@@ -71,7 +71,11 @@ export const fetchLinks = async (page = 1, perPage = 20) => {
 
 export const createLink = async (linkData) => {
   const formData = new FormData();
-  formData.append('original_url', linkData.original_url);
+  // V2: Gửi link1_id và link2_id (ID của affiliate link)
+  if (linkData.link1_id)            formData.append('link1_id', linkData.link1_id);
+  if (linkData.link2_id)            formData.append('link2_id', linkData.link2_id);
+  // Fallback v1: original_url nếu không dùng ID
+  if (linkData.original_url)        formData.append('original_url', linkData.original_url);
   formData.append('custom_slug', linkData.custom_slug);
   if (linkData.custom_domain)       formData.append('custom_domain', linkData.custom_domain);
   if (linkData.og_title)            formData.append('og_title', linkData.og_title);
@@ -80,7 +84,6 @@ export const createLink = async (linkData) => {
   if (linkData.telegram_file_id)    formData.append('telegram_file_id', linkData.telegram_file_id);
   if (linkData.direct_video_url)    formData.append('direct_video_url', linkData.direct_video_url);
   if (linkData.content_description) formData.append('content_description', linkData.content_description);
-  if (linkData.second_affiliate_url) formData.append('second_affiliate_url', linkData.second_affiliate_url);
   if (linkData.image instanceof File) formData.append('image', linkData.image);
   const { data } = await api.post('/api/links/', formData);
   return data;
@@ -88,6 +91,9 @@ export const createLink = async (linkData) => {
 
 export const updateLink = async (id, linkData) => {
   const formData = new FormData();
+  // V2
+  if (linkData.link1_id !== undefined)           formData.append('link1_id', linkData.link1_id || '');
+  if (linkData.link2_id !== undefined)           formData.append('link2_id', linkData.link2_id || '');
   if (linkData.original_url !== undefined)       formData.append('original_url', linkData.original_url);
   if (linkData.custom_domain !== undefined)      formData.append('custom_domain', linkData.custom_domain || '');
   if (linkData.og_title !== undefined)           formData.append('og_title', linkData.og_title || '');
@@ -96,7 +102,6 @@ export const updateLink = async (id, linkData) => {
   if (linkData.telegram_file_id !== undefined)   formData.append('telegram_file_id', linkData.telegram_file_id || '');
   if (linkData.direct_video_url !== undefined)   formData.append('direct_video_url', linkData.direct_video_url || '');
   if (linkData.content_description !== undefined) formData.append('content_description', linkData.content_description || '');
-  if (linkData.second_affiliate_url !== undefined) formData.append('second_affiliate_url', linkData.second_affiliate_url || '');
   if (linkData.is_active !== undefined)          formData.append('is_active', linkData.is_active.toString());
   if (linkData.image instanceof File)            formData.append('image', linkData.image);
   const { data } = await api.put(`/api/links/${id}`, formData);

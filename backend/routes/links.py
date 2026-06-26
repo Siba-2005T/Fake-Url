@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
-from models import CloakLink
+from models import CloakLink, AffiliateLink
 from utils import (
     upload_image_to_cloudinary,
     delete_image_from_cloudinary,
@@ -108,11 +108,15 @@ def get_all_links():
 @links_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_link():
-    """Tạo một Cloak Link mới, gắn với user hiện tại."""
+    """Tạo một Cloak Link mới, gắn với user hiện tại.
+    
+    Hỗ trợ 2 chế độ:
+    - V2 (mới): Nhận link1_id và link2_id (FK → affiliate_links)
+    - V1 (cũ): Nhận original_url và second_affiliate_url (backward-compat)
+    """
     try:
         uid = _get_user_id()
 
-        original_url = request.form.get("original_url", "").strip()
         custom_slug = request.form.get("custom_slug", "").strip()
         custom_domain = request.form.get("custom_domain", "").strip() or None
         og_title = request.form.get("og_title", "").strip() or None
@@ -121,17 +125,32 @@ def create_link():
         telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
         direct_video_url = request.form.get("direct_video_url", "").strip() or None
         content_description = request.form.get("content_description", "").strip() or None
-        second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
 
-        # Validation
-        if not original_url:
-            return jsonify({"success": False, "error": "original_url là bắt buộc."}), 400
+        # ── V2: Nhận ID của affiliate link ──
+        link1_id_raw = request.form.get("link1_id", "").strip()
+        link2_id_raw = request.form.get("link2_id", "").strip()
+        link1_id = int(link1_id_raw) if link1_id_raw.isdigit() else None
+        link2_id = int(link2_id_raw) if link2_id_raw.isdigit() else None
+
+        # Resolve URL từ affiliate_links nếu có link1_id
+        link1_obj = AffiliateLink.query.filter_by(id=link1_id, user_id=uid).first() if link1_id else None
+        link2_obj = AffiliateLink.query.filter_by(id=link2_id, user_id=uid).first() if link2_id else None
+
+        # Fallback v1: đọc original_url / second_affiliate_url trực tiếp
+        original_url = (link1_obj.url if link1_obj else None) \
+                        or request.form.get("original_url", "").strip() or None
+        second_affiliate_url = (link2_obj.url if link2_obj else None) \
+                                or request.form.get("second_affiliate_url", "").strip() or None
+
+        # Validation cơ bản
         if not custom_slug:
             return jsonify({"success": False, "error": "custom_slug là bắt buộc."}), 400
-        if not original_url.startswith(("http://", "https://")):
-            return jsonify({"success": False, "error": "original_url phải bắt đầu bằng http:// hoặc https://"}), 400
         if not re.match(r"^[a-zA-Z0-9\-_]+$", custom_slug):
             return jsonify({"success": False, "error": "custom_slug chỉ được chứa chữ, số, - và _"}), 400
+        if not link1_id and not original_url:
+            return jsonify({"success": False, "error": "Phải chọn ít nhất Bẫy Click Lần 1."}), 400
+        if original_url and not original_url.startswith(("http://", "https://")):
+            return jsonify({"success": False, "error": "URL phải bắt đầu bằng http:// hoặc https://"}), 400
 
         if CloakLink.query.filter_by(custom_slug=custom_slug).first():
             return jsonify({"success": False, "error": f"Slug '{custom_slug}' đã được sử dụng."}), 409
@@ -156,6 +175,8 @@ def create_link():
             direct_video_url=direct_video_url,
             content_description=content_description,
             second_affiliate_url=second_affiliate_url,
+            link1_id=link1_id,
+            link2_id=link2_id,
             image_path=image_path,
             image_public_id=image_public_id,
         )
@@ -222,6 +243,13 @@ def update_link(link_id: int):
             link.content_description = request.form.get("content_description", "").strip() or None
         if "second_affiliate_url" in request.form:
             link.second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
+        # V2: cập nhật FK
+        if "link1_id" in request.form:
+            link1_id_raw = request.form.get("link1_id", "").strip()
+            link.link1_id = int(link1_id_raw) if link1_id_raw.isdigit() else None
+        if "link2_id" in request.form:
+            link2_id_raw = request.form.get("link2_id", "").strip()
+            link.link2_id = int(link2_id_raw) if link2_id_raw.isdigit() else None
         if "is_active" in request.form:
             link.is_active = request.form.get("is_active", "true").lower() == "true"
 

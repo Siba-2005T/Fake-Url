@@ -170,13 +170,26 @@ def handle_redirect(slug: str):
         video_url = link.direct_video_url
 
     # --------------------------------------------------------
-    # Tìm Affiliate Link ID để tracking click ở frontend
+    # Resolve URL & ID cho Bẫy Click 2 tầng (dùng FK v2 ưu tiên)
     # --------------------------------------------------------
-    shopee_link = AffiliateLink.query.filter_by(url=link.original_url).first() if link.original_url else None
-    tiktok_link = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
-    
-    shopee_link_id = shopee_link.id if shopee_link else ""
-    tiktok_link_id = tiktok_link.id if tiktok_link else ""
+    # V2: Dùng FK link1_id / link2_id trực tiếp (nhanh, chính xác)
+    if link.link1_id and link.link1:
+        link1_url = link.link1.url
+        link1_id  = link.link1_id
+    else:
+        # Fallback v1: dùng original_url và lookup ngược
+        link1_url = link.original_url
+        aff1 = AffiliateLink.query.filter_by(url=link.original_url).first() if link.original_url else None
+        link1_id  = aff1.id if aff1 else ""
+
+    if link.link2_id and link.link2:
+        link2_url = link.link2.url
+        link2_id  = link.link2_id
+    else:
+        # Fallback v1: dùng second_affiliate_url và lookup ngược
+        link2_url = link.second_affiliate_url
+        aff2 = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
+        link2_id  = aff2.id if aff2 else ""
 
     # --------------------------------------------------------
     # Render và trả về HTML với OG tags + redirect script / landing page
@@ -187,11 +200,14 @@ def handle_redirect(slug: str):
         og_description=og_description,
         og_image=og_image_url,
         og_url=current_url,
-        original_url=link.original_url,
-        second_affiliate_url=link.second_affiliate_url,
-        shopee_link_id=shopee_link_id,
-        tiktok_link_id=tiktok_link_id,
-        video_url=video_url,
+        # Biến chuẩn mới cho Bẫy Click 2 tầng
+        link1_url=link1_url,
+        link1_id=link1_id,
+        link2_url=link2_url,
+        link2_id=link2_id,
+        # Backward-compat (giữ lại để không vỡ nếu template cũ)
+        original_url=link1_url,
+        second_affiliate_url=link2_url,
         final_video_url=video_url,
         content_description=link.content_description
     )

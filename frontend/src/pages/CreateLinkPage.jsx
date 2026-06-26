@@ -1,9 +1,13 @@
 /**
  * CreateLinkPage.jsx - Trang tạo Fake Link (Menu 1)
+ * Cập nhật v2: Bẫy Click Lần 1 & Lần 2 với selector nền tảng + combobox theo ID
  */
 import { useState, useEffect, useCallback } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
-import { Link2, Fingerprint, Globe, Type, FileText, Loader2, Zap, Video, AlignLeft, ChevronDown } from 'lucide-react';
+import {
+  Link2, Fingerprint, Globe, Type, FileText, Loader2,
+  Zap, Video, AlignLeft, ChevronDown, ShoppingBag, Music2, Target,
+} from 'lucide-react';
 import ImageUpload from '../components/ImageUpload';
 import {
   createLink, checkSlugAvailability,
@@ -20,49 +24,137 @@ const generateSlug = (text) =>
     .replace(/-+/g, '-')
     .slice(0, 80);
 
-/* ── Autocomplete Combobox ── */
-const AffiliateCombobox = ({ label, placeholder, value, onChange, items, icon: Icon }) => {
+/* ================================================================
+   Combobox chọn affiliate link theo ID (không phải URL)
+   - Hiển thị tên link, search theo tên hoặc URL
+   - Trả về object { id, name, url } khi chọn
+================================================================ */
+const AffiliatePicker = ({ trapLabel, trapColor, value, onChange, shopeeLinks, tiktokLinks }) => {
+  const [platform, setPlatform] = useState('shopee');
+  const [searchText, setSearchText] = useState('');
   const [open, setOpen] = useState(false);
+
+  const items = platform === 'shopee' ? shopeeLinks : tiktokLinks;
   const filtered = items.filter(i =>
-    i.name.toLowerCase().includes(value.toLowerCase()) || i.url.toLowerCase().includes(value.toLowerCase())
+    i.name.toLowerCase().includes(searchText.toLowerCase()) ||
+    i.url.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  // Khi platform đổi → reset selection
+  const handlePlatformChange = (p) => {
+    setPlatform(p);
+    setSearchText('');
+    onChange(null); // bỏ chọn link hiện tại
+  };
+
+  // Khi user chọn 1 item từ dropdown
+  const handleSelect = (item) => {
+    onChange(item);           // trả { id, name, url }
+    setSearchText(item.name); // hiển thị tên trong input
+    setOpen(false);
+  };
+
+  // Sync display khi value thay đổi từ bên ngoài (VD: reset form)
+  useEffect(() => {
+    if (!value) setSearchText('');
+  }, [value]);
+
+  const platformIcon = platform === 'shopee'
+    ? <ShoppingBag size={13} style={{ color: '#ff6533' }} />
+    : <Music2 size={13} style={{ color: '#69c9d0' }} />;
+
   return (
-    <div className="form-group" style={{ position: 'relative' }}>
-      <label className="form-label">
-        {Icon && <Icon size={14} />} {label}
-      </label>
-      <div className="combobox-wrapper">
-        <input
-          className="form-input"
-          placeholder={placeholder}
-          value={value}
-          onChange={e => { onChange(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-        />
-        <ChevronDown size={16} className="combobox-arrow" />
-      </div>
-      {open && filtered.length > 0 && (
-        <ul className="combobox-dropdown">
-          {filtered.map(item => (
-            <li key={item.id} className="combobox-item"
-              onMouseDown={() => { onChange(item.url); setOpen(false); }}>
-              <span className="combobox-item-name">{item.name}</span>
-              <span className="combobox-item-url">{item.url.slice(0, 40)}...</span>
-            </li>
+    <div className="trap-picker-card" style={{ borderColor: trapColor }}>
+      <div className="trap-picker-header" style={{ borderBottomColor: trapColor + '33' }}>
+        <span className="trap-label" style={{ color: trapColor }}>
+          <Target size={14} /> {trapLabel}
+        </span>
+
+        {/* Radio chọn nền tảng */}
+        <div className="platform-radios">
+          {[
+            { val: 'shopee', label: 'Shopee', icon: <ShoppingBag size={12} />, color: '#ff6533' },
+            { val: 'tiktok', label: 'TikTok', icon: <Music2 size={12} />, color: '#69c9d0' },
+          ].map(({ val, label, icon, color }) => (
+            <label
+              key={val}
+              className={`platform-radio-btn ${platform === val ? 'active' : ''}`}
+              style={platform === val ? { borderColor: color, color: color, background: color + '15' } : {}}
+            >
+              <input
+                type="radio"
+                name={`platform-${trapLabel}`}
+                value={val}
+                checked={platform === val}
+                onChange={() => handlePlatformChange(val)}
+                style={{ display: 'none' }}
+              />
+              {icon} {label}
+            </label>
           ))}
-        </ul>
-      )}
+        </div>
+      </div>
+
+      {/* Combobox */}
+      <div style={{ position: 'relative', padding: '12px 16px' }}>
+        <div className="combobox-wrapper">
+          <span className="combobox-platform-icon">{platformIcon}</span>
+          <input
+            className="form-input combobox-with-icon"
+            placeholder={`Chọn link ${platform === 'shopee' ? 'Shopee' : 'TikTok'}...`}
+            value={searchText}
+            onChange={e => { setSearchText(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 200)}
+          />
+          <ChevronDown size={15} className="combobox-arrow" />
+        </div>
+
+        {/* Selected badge */}
+        {value && (
+          <div className="selected-badge" style={{ borderColor: trapColor + '55', color: trapColor }}>
+            ✓ <strong>{value.name}</strong>
+            <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 6 }}>
+              {value.url.slice(0, 45)}...
+            </span>
+          </div>
+        )}
+
+        {/* Dropdown list */}
+        {open && (
+          <ul className="combobox-dropdown">
+            {filtered.length === 0 ? (
+              <li className="combobox-empty">
+                {items.length === 0
+                  ? `Chưa có link ${platform}. Hãy thêm ở trang Affiliate Manager.`
+                  : 'Không tìm thấy kết quả.'}
+              </li>
+            ) : filtered.map(item => (
+              <li key={item.id} className="combobox-item" onMouseDown={() => handleSelect(item)}>
+                <span className="combobox-item-name">{item.name}</span>
+                <span className="combobox-item-url">{item.url.slice(0, 50)}...</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
 
+/* ── State khởi tạo ── */
 const INITIAL_FORM = {
-  original_url: '', custom_slug: '', custom_domain: '',
-  og_title: '', og_description: '',
-  video_source: 'direct', telegram_file_id: '', direct_video_url: '',
-  content_description: '', second_affiliate_url: '', image: null,
+  link1: null,       // { id, name, url } hoặc null
+  link2: null,       // { id, name, url } hoặc null
+  custom_slug: '',
+  custom_domain: '',
+  og_title: '',
+  og_description: '',
+  video_source: 'direct',
+  telegram_file_id: '',
+  direct_video_url: '',
+  content_description: '',
+  image: null,
 };
 
 const CreateLinkPage = () => {
@@ -119,8 +211,7 @@ const CreateLinkPage = () => {
 
   const validate = () => {
     const e = {};
-    if (!form.original_url.trim()) e.original_url = 'URL gốc là bắt buộc.';
-    else if (!form.original_url.startsWith('http')) e.original_url = 'URL phải bắt đầu bằng http://';
+    if (!form.link1) e.link1 = 'Bắt buộc chọn Bẫy Click Lần 1.';
     if (!form.custom_slug.trim()) e.custom_slug = 'Slug là bắt buộc.';
     else if (!/^[a-zA-Z0-9\-_]+$/.test(form.custom_slug)) e.custom_slug = 'Slug chỉ được chứa chữ, số, - và _';
     if (slugStatus === 'taken') e.custom_slug = 'Slug đã được dùng.';
@@ -135,7 +226,13 @@ const CreateLinkPage = () => {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      const result = await createLink(form);
+      // Payload v2: gửi link1_id và link2_id
+      const payload = {
+        ...form,
+        link1_id: form.link1?.id,
+        link2_id: form.link2?.id || undefined,
+      };
+      const result = await createLink(payload);
       setForm(INITIAL_FORM);
       setSlugStatus(null);
       setErrors({});
@@ -165,32 +262,42 @@ const CreateLinkPage = () => {
 
             {/* CỘT TRÁI */}
             <div className="form-column">
-              <h3 className="form-col-title">🔗 Thông tin Link</h3>
+              <h3 className="form-col-title">🪝 Cấu Hình Bẫy Click</h3>
 
-              {/* URL Shopee (Bẫy tầng 1) */}
-              <AffiliateCombobox
-                label="Link Shopee (Bẫy tầng 1) *"
-                placeholder="https://shopee.vn/... hoặc chọn từ danh sách"
-                value={form.original_url}
-                onChange={val => { setForm(p => ({ ...p, original_url: val })); if (errors.original_url) setErrors(p => ({ ...p, original_url: '' })); }}
-                items={shopeeLinks}
-                icon={Link2}
+              {/* ── Bẫy Click Lần 1 ── */}
+              <AffiliatePicker
+                trapLabel="Bẫy Click Lần 1 *"
+                trapColor="#e53935"
+                value={form.link1}
+                onChange={item => {
+                  setForm(p => ({ ...p, link1: item }));
+                  if (errors.link1) setErrors(p => ({ ...p, link1: '' }));
+                }}
+                shopeeLinks={shopeeLinks}
+                tiktokLinks={tiktokLinks}
               />
-              {errors.original_url && <p className="form-error">{errors.original_url}</p>}
+              {errors.link1 && <p className="form-error" style={{ marginTop: 4 }}>{errors.link1}</p>}
+              <p className="form-hint" style={{ marginTop: 4 }}>
+                🖱️ Click <strong>lần 1</strong> sẽ mở link này (do thẻ &lt;a&gt; href).
+              </p>
 
-              {/* URL TikTok (Bẫy tầng 2) */}
-              <AffiliateCombobox
-                label="Link TikTok (Bẫy tầng 2)"
-                placeholder="https://www.tiktok.com/... hoặc chọn từ danh sách"
-                value={form.second_affiliate_url}
-                onChange={val => setForm(p => ({ ...p, second_affiliate_url: val }))}
-                items={tiktokLinks}
-                icon={Link2}
-              />
-              <p className="form-hint">⚡ Click lần 2 mở link này. Để trống nếu không cần.</p>
+              {/* ── Bẫy Click Lần 2 ── */}
+              <div style={{ marginTop: 16 }}>
+                <AffiliatePicker
+                  trapLabel="Bẫy Click Lần 2"
+                  trapColor="#7c3aed"
+                  value={form.link2}
+                  onChange={item => setForm(p => ({ ...p, link2: item }))}
+                  shopeeLinks={shopeeLinks}
+                  tiktokLinks={tiktokLinks}
+                />
+                <p className="form-hint" style={{ marginTop: 4 }}>
+                  🔄 Sau click 1, thẻ &lt;a&gt; đổi href sang link này. Để trống nếu không cần.
+                </p>
+              </div>
 
               {/* Custom Slug */}
-              <div className="form-group">
+              <div className="form-group" style={{ marginTop: 16 }}>
                 <label className="form-label" htmlFor="custom_slug"><Fingerprint size={14} /> Slug *</label>
                 <div className="slug-input-wrapper">
                   <input id="custom_slug" type="text"
@@ -310,6 +417,101 @@ const CreateLinkPage = () => {
           </div>
         </form>
       </div>
+
+      {/* CSS nội tuyến cho các component mới */}
+      <style>{`
+        /* ── Trap Picker Card ── */
+        .trap-picker-card {
+          border: 1.5px solid;
+          border-radius: 12px;
+          overflow: visible;
+          background: rgba(255,255,255,0.03);
+          transition: box-shadow 0.2s;
+        }
+        .trap-picker-card:focus-within {
+          box-shadow: 0 0 0 3px rgba(229,57,53,0.12);
+        }
+        .trap-picker-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 16px;
+          border-bottom: 1px solid;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .trap-label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+        }
+
+        /* ── Platform Radio Buttons ── */
+        .platform-radios {
+          display: flex;
+          gap: 8px;
+        }
+        .platform-radio-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 12px;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.15);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          color: rgba(255,255,255,0.55);
+          transition: all 0.18s ease;
+          user-select: none;
+        }
+        .platform-radio-btn:hover {
+          border-color: rgba(255,255,255,0.3);
+          color: rgba(255,255,255,0.85);
+        }
+        .platform-radio-btn.active {
+          font-weight: 700;
+        }
+
+        /* ── Combobox with icon ── */
+        .combobox-platform-icon {
+          position: absolute;
+          left: 30px;
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+          z-index: 2;
+        }
+        .combobox-with-icon {
+          padding-left: 36px !important;
+        }
+
+        /* ── Selected badge ── */
+        .selected-badge {
+          margin-top: 8px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          border: 1px solid;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+          background: rgba(255,255,255,0.04);
+        }
+
+        /* ── Combobox empty ── */
+        .combobox-empty {
+          padding: 10px 14px;
+          color: rgba(255,255,255,0.4);
+          font-size: 13px;
+          font-style: italic;
+          list-style: none;
+        }
+      `}</style>
     </div>
   );
 };
