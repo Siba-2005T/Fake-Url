@@ -33,7 +33,7 @@ người dùng click được redirect sang trang thật.
 import re
 import os
 import requests
-from flask import Blueprint, request, render_template, abort, current_app
+from flask import Blueprint, request, render_template, abort, current_app, redirect
 
 from extensions import db
 from models import CloakLink, TelegramVideo, User, AffiliateLink
@@ -69,19 +69,45 @@ BOT_USER_AGENTS = [
 def is_bot_request(user_agent: str) -> bool:
     """
     Kiểm tra xem request đến có phải từ bot crawler không.
-
-    Dù cả bot và người dùng thật đều nhận cùng một HTML response
-    (có đủ OG tags và redirect script), nhưng hàm này hữu ích
-    nếu sau này muốn phân tách logic (VD: log analytics riêng).
-
-    Args:
-        user_agent: Chuỗi User-Agent từ HTTP header
-
-    Returns:
-        True nếu là bot, False nếu là người dùng thật
     """
     ua_lower = user_agent.lower()
     return any(bot in ua_lower for bot in BOT_USER_AGENTS)
+
+
+def detect_facebook_browser(user_agent: str) -> dict:
+    """
+    Phân tích User-Agent để nhận diện Facebook In-App Browser (IAB).
+
+    Facebook IAB có 2 dạng User-Agent:
+      Android: ... FBAN/... FBAV/...  (ví dụ: Facebook app Android)
+      iOS:     ... FBAN/... FBAV/...  (ví dụ: Facebook app iPhone)
+
+    Returns:
+        dict with keys:
+          is_facebook  : True nếu đang dùng Facebook IAB
+          is_android   : True nếu là Android
+          is_ios       : True nếu là iOS/iPhone
+    """
+    ua = user_agent  # giữ nguyên case để kiểm tra chính xác
+    ua_lower = ua.lower()
+
+    # Nhận diện Facebook IAB qua các chuỗi đặc trưng
+    is_facebook = (
+        'FBAN/'  in ua or  # Facebook App Name
+        'FBAV/'  in ua or  # Facebook App Version
+        'FBIOS'  in ua or  # Facebook iOS
+        'FB_IAB' in ua or  # Facebook In-App Browser flag
+        'FBDV/'  in ua     # Facebook Device
+    )
+
+    is_android = 'android' in ua_lower
+    is_ios     = 'iphone' in ua_lower or 'ipad' in ua_lower or 'ipod' in ua_lower
+
+    return {
+        'is_facebook': is_facebook,
+        'is_android':  is_android,
+        'is_ios':      is_ios,
+    }
 
 
 # ============================================================
@@ -170,14 +196,44 @@ def handle_redirect(slug: str):
         video_url = link.direct_video_url
 
     # --------------------------------------------------------
+    # FORCE BREAKOUT: Phân tích Facebook IAB và xử lý riêng
+    # --------------------------------------------------------
+    fb_info = detect_facebook_browser(user_agent)
+    is_facebook_ios = False  # mặc định: không phải Facebook iOS
+
+    if fb_info['is_facebook'] and not is_bot_request(user_agent):
+        if fb_info['is_android']:
+            # ── ANDROID: Redirect sang Intent Chrome ──
+            # Intent URI bướộc thiết bị mở trang bằng Chrome ứng dụng,
+            # bỏ qua hoàn toàn webview của Facebook.
+            # package=com.android.chrome → AOSP Chrome
+            # Nếu không có Chrome, fallback browser của AOSP.
+            intent_url = (
+                f"intent://{request.host}/{slug}"
+                f"#Intent;scheme=https;package=com.android.chrome;"
+                f"S.browser_fallback_url=https://{request.host}/{slug};end"
+            )
+            current_app.logger.info(
+                f"[Breakout] Android Facebook IAB → Intent redirect: {intent_url[:80]}"
+            )
+            return redirect(intent_url, 302)
+
+        elif fb_info['is_ios']:
+            # ── IOS: Truyền cờ vào template, hiện màn hướng dẫn thủ công ──
+            # iOS không hỗ trợ Intent URI, không có cách tự động breakout.
+            # Giải pháp duy nhất: Hướng dẫn người dùng thủ công mở Safari.
+            is_facebook_ios = True
+            current_app.logger.info(
+                f"[Breakout] iOS Facebook IAB → Hiện màn hướng dẫn"
+            )
+
+    # --------------------------------------------------------
     # Resolve URL & ID cho Bẫy Click 2 tầng (dùng FK v2 ưu tiên)
     # --------------------------------------------------------
-    # V2: Dùng FK link1_id / link2_id trực tiếp (nhanh, chính xác)
     if link.link1_id and link.link1:
         link1_url = link.link1.url
         link1_id  = link.link1_id
     else:
-        # Fallback v1: dùng original_url và lookup ngược
         link1_url = link.original_url
         aff1 = AffiliateLink.query.filter_by(url=link.original_url).first() if link.original_url else None
         link1_id  = aff1.id if aff1 else ""
@@ -186,13 +242,12 @@ def handle_redirect(slug: str):
         link2_url = link.link2.url
         link2_id  = link.link2_id
     else:
-        # Fallback v1: dùng second_affiliate_url và lookup ngược
         link2_url = link.second_affiliate_url
         aff2 = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
         link2_id  = aff2.id if aff2 else ""
 
     # --------------------------------------------------------
-    # Render và trả về HTML với OG tags + redirect script / landing page
+    # Render và trả về HTML
     # --------------------------------------------------------
     html_content = render_template(
         "landing.html",
@@ -200,13 +255,13 @@ def handle_redirect(slug: str):
         og_description=og_description,
         og_image=og_image_url,
         og_url=current_url,
-        # Biến chuẩn cho Bẫy Click 2 tầng
         link1_url=link1_url,
         link1_id=link1_id,
         link2_url=link2_url,
         link2_id=link2_id,
-        # slug_id: key duy nhất cho localStorage (mỗi cloak link có key riêng)
         slug_id=link.custom_slug,
+        # Cờ nhận diện Facebook iOS → hiện màn hướng dẫn
+        is_facebook_ios=is_facebook_ios,
         # Backward-compat
         original_url=link1_url,
         second_affiliate_url=link2_url,
