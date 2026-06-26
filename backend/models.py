@@ -86,6 +86,8 @@ class CloakLink(db.Model):
     link2_id = db.Column(db.Integer, db.ForeignKey("affiliate_links.id"), nullable=True, index=True)
     image_path = db.Column(db.Text, nullable=True)
     image_public_id = db.Column(db.String(500), nullable=True)
+    # ── Cột v3: URL ảnh OG trực tiếp (dán link, không cần upload) ──
+    og_image_url = db.Column(db.String(2083), nullable=True)
     click_count = db.Column(db.Integer, default=0, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
@@ -121,6 +123,7 @@ class CloakLink(db.Model):
             "link2_id": self.link2_id,
             "link1_url": self.link1.url if self.link1 else None,
             "link2_url": self.link2.url if self.link2 else None,
+            "og_image_url": self.og_image_url,
             "image_path": self.image_path,
             "image_url": self.get_image_url(base_url),
             "click_count": self.click_count,

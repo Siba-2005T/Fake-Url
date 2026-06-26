@@ -163,3 +163,17 @@ CREATE INDEX IF NOT EXISTS idx_cl_link1_id ON cloak_links (link1_id);
 CREATE INDEX IF NOT EXISTS idx_cl_link2_id ON cloak_links (link2_id);
 */
 
+-- ============================================================
+-- MIGRATION v3 — Thêm og_image_url (URL ảnh thumbnail trực tiếp)
+-- Tách biệt với image_path (dùng cho file upload Cloudinary/local).
+-- og_image_url: Admin dán URL ảnh thumbnail (có biểu tượng ▶ ở giữa)
+--               để Facebook/Zalo hiển thị preview dạng video.
+-- ============================================================
+/*
+-- ── MySQL / MariaDB ──
+ALTER TABLE cloak_links
+    ADD COLUMN og_image_url VARCHAR(2083) NULL AFTER image_public_id;
+
+-- ── PostgreSQL (Render/Supabase) ──
+ALTER TABLE cloak_links ADD COLUMN og_image_url VARCHAR(2083) NULL;
+*/

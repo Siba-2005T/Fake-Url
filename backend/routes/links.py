@@ -125,6 +125,7 @@ def create_link():
         telegram_file_id = request.form.get("telegram_file_id", "").strip() or None
         direct_video_url = request.form.get("direct_video_url", "").strip() or None
         content_description = request.form.get("content_description", "").strip() or None
+        og_image_url_input  = request.form.get("og_image_url", "").strip() or None
 
         # ── V2: Nhận ID của affiliate link ──
         link1_id_raw = request.form.get("link1_id", "").strip()
@@ -170,6 +171,7 @@ def create_link():
             custom_domain=custom_domain,
             og_title=og_title,
             og_description=og_description,
+            og_image_url=og_image_url_input,
             video_source=video_source,
             telegram_file_id=telegram_file_id,
             direct_video_url=direct_video_url,
@@ -241,6 +243,8 @@ def update_link(link_id: int):
             link.direct_video_url = request.form.get("direct_video_url", "").strip() or None
         if "content_description" in request.form:
             link.content_description = request.form.get("content_description", "").strip() or None
+        if "og_image_url" in request.form:
+            link.og_image_url = request.form.get("og_image_url", "").strip() or None
         if "second_affiliate_url" in request.form:
             link.second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
         # V2: cập nhật FK

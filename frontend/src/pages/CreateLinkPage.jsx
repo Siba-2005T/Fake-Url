@@ -144,12 +144,13 @@ const AffiliatePicker = ({ trapLabel, trapColor, value, onChange, shopeeLinks, t
 
 /* ── State khởi tạo ── */
 const INITIAL_FORM = {
-  link1: null,       // { id, name, url } hoặc null
-  link2: null,       // { id, name, url } hoặc null
+  link1: null,
+  link2: null,
   custom_slug: '',
   custom_domain: '',
   og_title: '',
   og_description: '',
+  og_image_url: '',      // URL thumbnail trực tiếp (có nút play)
   video_source: 'direct',
   telegram_file_id: '',
   direct_video_url: '',
@@ -335,16 +336,43 @@ const CreateLinkPage = () => {
               <div className="form-group">
                 <label className="form-label" htmlFor="og_title"><Type size={14} /> Tiêu Đề OG</label>
                 <input id="og_title" type="text" className="form-input"
-                  placeholder="Sản phẩm HOT - Giảm 50%!" value={form.og_title}
+                  placeholder="Video hot nhất hôm nay 🔥" value={form.og_title}
                   onChange={handleTitleChange} maxLength={200} />
               </div>
 
               {/* OG Description */}
               <div className="form-group">
                 <label className="form-label" htmlFor="og_description"><FileText size={14} /> Mô Tả OG</label>
-                <textarea id="og_description" className="form-textarea" rows={3} maxLength={500}
-                  placeholder="Mô tả ngắn..." value={form.og_description}
+                <textarea id="og_description" className="form-textarea" rows={2} maxLength={300}
+                  placeholder="Mô tả ngắn xuất hiện dưới tiêu đề..." value={form.og_description}
                   onChange={handleChange('og_description')} />
+              </div>
+
+              {/* OG Image URL — Thumbnail có nút Play */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="og_image_url">
+                  🖼️ URL Ảnh Thumbnail <span className="form-optional">(có nút play giả)</span>
+                </label>
+                <input
+                  id="og_image_url"
+                  type="url"
+                  className="form-input"
+                  placeholder="https://i.imgur.com/abc123.jpg"
+                  value={form.og_image_url}
+                  onChange={handleChange('og_image_url')}
+                />
+                <p className="form-hint">⚡ Dán link ảnh thumbnail đã chỉnh sửa có biểu tượng ▶ ở giữa để Facebook hiển thị như video thật.</p>
+                {/* Preview thumbnail nhỏ nếu có URL */}
+                {form.og_image_url && (
+                  <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', maxWidth: 240 }}>
+                    <img
+                      src={form.og_image_url}
+                      alt="Thumbnail preview"
+                      style={{ width: '100%', display: 'block', aspectRatio: '16/9', objectFit: 'cover' }}
+                      onError={e => { e.target.style.display = 'none'; }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Nguồn Video */}

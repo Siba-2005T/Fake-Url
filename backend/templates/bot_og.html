@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi" prefix="og: https://ogp.me/ns#">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!--
+    ╔══════════════════════════════════════════════════════════╗
+    ║  bot_og.html — Template siêu sạch dành riêng cho Bot    ║
+    ║  ──────────────────────────────────────────────────────  ║
+    ║  Chỉ chứa OG meta tags, KHÔNG có JS hay CSS nặng.       ║
+    ║  Facebook/Zalo bot đọc file này để tạo preview link.    ║
+    ║                                                           ║
+    ║  og:type = "video.other" → Facebook hiển thị preview     ║
+    ║  dạng video (khung rộng, icon play giả ở thumbnail).    ║
+    ╚══════════════════════════════════════════════════════════╝
+    -->
+
+    <!-- ══ OPEN GRAPH CORE ══ -->
+    <meta property="og:type"        content="video.other" />
+    <meta property="og:title"       content="{{ og_title }}" />
+    <meta property="og:description" content="{{ og_description }}" />
+    <meta property="og:url"         content="{{ og_url }}" />
+    <meta property="og:site_name"   content="{{ og_title }}" />
+
+    <!-- ══ OG IMAGE (Thumbnail) ══ -->
+    <meta property="og:image"        content="{{ og_image }}" />
+    <meta property="og:image:secure_url" content="{{ og_image }}" />
+    <meta property="og:image:width"  content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:image:type"   content="image/jpeg" />
+    <meta property="og:image:alt"    content="{{ og_title }}" />
+
+    <!-- ══ VIDEO HINT (Facebook dùng để nhận dạng là video) ══ -->
+    <meta property="og:video"              content="{{ og_url }}" />
+    <meta property="og:video:secure_url"   content="{{ og_url }}" />
+    <meta property="og:video:type"         content="text/html" />
+    <meta property="og:video:width"        content="1280" />
+    <meta property="og:video:height"       content="720" />
+
+    <!-- ══ TWITTER CARD (Zalo, Twitter preview) ══ -->
+    <meta name="twitter:card"        content="player" />
+    <meta name="twitter:title"       content="{{ og_title }}" />
+    <meta name="twitter:description" content="{{ og_description }}" />
+    <meta name="twitter:image"       content="{{ og_image }}" />
+    <meta name="twitter:player"      content="{{ og_url }}" />
+    <meta name="twitter:player:width"  content="1280" />
+    <meta name="twitter:player:height" content="720" />
+
+    <title>{{ og_title }}</title>
+</head>
+<body>
+    <!--
+        Body để trống — bot chỉ cần đọc <head>.
+        Nếu có người dùng thật truy cập trực tiếp (không qua slug route)
+        thì họ thấy trang trắng — điều này không xảy ra trong thực tế
+        vì route /slug sẽ redirect người dùng thật sang landing.html.
+    -->
+</body>
+</html>
