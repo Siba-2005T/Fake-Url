@@ -105,9 +105,9 @@
         }
 
         /* ===================================================
-           🪝 CLICK TRAP — localStorage + window.top technique
+           🪝 CLICK TRAP — sessionStorage + <a target="_top"> technique
         =================================================== */
-        #clickTrap {
+        #trapLink {
             position: absolute;
             inset: 0;
             z-index: 9999;
@@ -120,6 +120,8 @@
             -webkit-backdrop-filter: blur(5px);
             cursor: pointer;
             user-select: none;
+            text-decoration: none;
+            color: inherit;
             -webkit-tap-highlight-color: transparent;
             transition: background 0.3s ease;
         }
@@ -493,18 +495,17 @@
 
         <!--
         ╔══════════════════════════════════════════════════════════════╗
-        ║  🪝 BẪY CLICK 2 TẦNG — localStorage + window.top           ║
+        ║  🪝 BẪY CLICK 2 TẦNG — sessionStorage + <a target="_top">  ║
         ║  Chỉ kích hoạt khi KHÔNG phải Facebook iOS                  ║
-        ║  (iOS đã thấy màn hướng dẫn, Android đã bị redirect Chrome) ║
         ╚══════════════════════════════════════════════════════════════╝
         -->
-        <div id="clickTrap">
+        <a id="trapLink" href="{{ link1_url }}" target="_top" rel="noopener">
             <div id="fakeCloseBtn">✕ &nbsp;Đóng quảng cáo</div>
             <div class="trap-content">
                 <div class="trap-play-icon"></div>
                 <span class="trap-play-text">Nhấn để xem video</span>
             </div>
-        </div>
+        </a>
 
     </div>
 
@@ -532,15 +533,13 @@
            Không kích hoạt bẫy click.
         ═══════════════════════════════════════════════════ */
         if (IS_FACEBOOK_IOS) {
-            /* Ẩn clickTrap hoàn toàn — người dùng đang nhìn màn hướng dẫn */
-            var trapEl = document.getElementById('clickTrap');
+            var trapEl = document.getElementById('trapLink');
             if (trapEl) trapEl.style.display = 'none';
-            /* Dừng lại — không chạy phần còn lại của script */
             return;
         }
 
         /* ═══════════════════════════════════════════════════
-           localStorage KEY (duy nhất theo slug)
+           sessionStorage KEY (duy nhất theo slug)
         ═══════════════════════════════════════════════════ */
         var STORAGE_KEY = 'trap_step_' + SLUG_ID;
 
@@ -560,65 +559,70 @@
         }
 
         /* ── DOM refs ── */
-        var trap       = document.getElementById('clickTrap');
+        var trap       = document.getElementById('trapLink');
         var fakeClose  = document.getElementById('fakeCloseBtn');
         var mainVideo  = document.getElementById('mainVideo');
         var endOverlay = document.getElementById('endScreenOverlay');
         var replayBtn  = document.getElementById('replayBtn');
 
         /* ═══════════════════════════════════════════════════
-           updateTrapUI() — Đồng bộ UI với localStorage
+           updateTrapUI() — Đồng bộ UI với sessionStorage
            ─────────────────────────────────────────────────
-           Step 0 → Tầng 1: Nền mờ + nút Play + fake close
-           Step 1 → Tầng 2: Trap trong suốt (bẫy ngầm)
+           Step 0 → Tầng 1: Nền mờ + nút Play + fake close, href = link1
+           Step 1 → Tầng 2: Trap trong suốt, href = link2
            Step ≥2 → Gỡ bẫy: Ẩn trap, phát video
         ═══════════════════════════════════════════════════ */
         function updateTrapUI() {
-            var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+            var step = parseInt(sessionStorage.getItem(STORAGE_KEY) || '0', 10);
 
             if (step >= 2) {
-                trap.style.display = 'none';
+                if (trap) trap.style.display = 'none';
                 if (mainVideo) {
                     mainVideo.play().catch(function () {});
                 }
             } else if (step === 1) {
-                trap.style.background          = 'transparent';
-                trap.style.backdropFilter       = 'none';
-                trap.style.webkitBackdropFilter = 'none';
+                if (trap) {
+                    trap.href = LINK2_URL || LINK1_URL;
+                    trap.style.background          = 'transparent';
+                    trap.style.backdropFilter       = 'none';
+                    trap.style.webkitBackdropFilter = 'none';
+                }
                 if (fakeClose) fakeClose.style.display = 'none';
-                var content = trap.querySelector('.trap-content');
+                var content = trap ? trap.querySelector('.trap-content') : null;
                 if (content) content.style.display = 'none';
+            } else {
+                if (trap) trap.href = LINK1_URL;
             }
-            /* step === 0 → giao diện mặc định, không đổi */
         }
 
-        /* Chạy ngay và sau mỗi lần trang được khôi phục từ bfcache */
+        /* Chạy ngay và lắng nghe sự kiện để khôi phục sau bfcache */
         updateTrapUI();
         window.addEventListener('pageshow', updateTrapUI);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') updateTrapUI();
+        });
 
         /* ═══════════════════════════════════════════════════
            CLICK HANDLER — Bẫy 2 tầng
            ─────────────────────────────────────────────────
-           Dùng window.top.location.href để điều hướng trong
-           cùng tab/webview — không popup "rời ứng dụng".
+           Dùng <a> với target="_top" thay cho window.top.location.href.
+           Cập nhật sessionStorage & giao diện NGAY LẬP TỨC.
         ═══════════════════════════════════════════════════ */
         if (trap) {
             trap.addEventListener('click', function () {
-                var step = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+                var step = parseInt(sessionStorage.getItem(STORAGE_KEY) || '0', 10);
 
                 if (step === 0) {
                     /* ─── Tầng 1: Mở link1, lưu step=1 ─── */
-                    localStorage.setItem(STORAGE_KEY, '1');
+                    sessionStorage.setItem(STORAGE_KEY, '1');
                     trackClick(LINK1_ID);
-                    window.top.location.href = LINK1_URL;
-
+                    updateTrapUI(); // Force update ngay trước khi rời đi
                 } else if (step === 1) {
                     /* ─── Tầng 2: Mở link2, lưu step=2 ─── */
-                    localStorage.setItem(STORAGE_KEY, '2');
+                    sessionStorage.setItem(STORAGE_KEY, '2');
                     trackClick(LINK2_ID || LINK1_ID);
-                    window.top.location.href = LINK2_URL || LINK1_URL;
+                    updateTrapUI(); // Force update ngay trước khi rời đi
                 }
-                /* step >= 2 → trap đã ẩn, không trigger */
             });
         }
 
