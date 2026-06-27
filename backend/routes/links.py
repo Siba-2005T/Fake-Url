@@ -7,6 +7,7 @@ Dữ liệu được cách ly theo user_id lấy từ token.
 import re
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from datetime import datetime
 
 from extensions import db
 from models import CloakLink, AffiliateLink
@@ -24,6 +25,43 @@ links_bp = Blueprint("links", __name__, url_prefix="/api/links")
 def _get_user_id():
     """Lấy user_id từ JWT token."""
     return int(get_jwt_identity())
+
+
+def _resolve_link_value(value, platform, uid):
+    """
+    Xử lý auto-create Affiliate Link nếu value là URL.
+    - Nếu value là ID (số): kiểm tra và trả về ID.
+    - Nếu value là URL: tạo AffiliateLink mới và trả về ID.
+    """
+    if not value:
+        return None
+        
+    value = str(value).strip()
+    
+    # Nếu là ID số hợp lệ
+    if value.isdigit():
+        link_obj = AffiliateLink.query.filter_by(id=int(value), user_id=uid).first()
+        return link_obj.id if link_obj else None
+        
+    # Nếu là URL
+    if value.startswith(("http://", "https://")):
+        # Kiểm tra xem URL đã tồn tại chưa
+        existing = AffiliateLink.query.filter_by(url=value, user_id=uid).first()
+        if existing:
+            return existing.id
+            
+        # Tạo mới
+        new_aff_link = AffiliateLink(
+            user_id=uid,
+            platform=platform or "shopee",
+            name=f"Link dán nhanh - {datetime.now().strftime('%H:%M %d/%m')}",
+            url=value
+        )
+        db.session.add(new_aff_link)
+        db.session.commit()
+        return new_aff_link.id
+        
+    return None
 
 
 def _handle_image_upload(file) -> tuple[str | None, str | None, str | None]:
@@ -127,11 +165,14 @@ def create_link():
         content_description = request.form.get("content_description", "").strip() or None
         og_image_url_input  = request.form.get("og_image_url", "").strip() or None
 
-        # ── V2: Nhận ID của affiliate link ──
-        link1_id_raw = request.form.get("link1_id", "").strip()
-        link2_id_raw = request.form.get("link2_id", "").strip()
-        link1_id = int(link1_id_raw) if link1_id_raw.isdigit() else None
-        link2_id = int(link2_id_raw) if link2_id_raw.isdigit() else None
+        # ── V2.1: Nhận value (ID hoặc URL) và platform ──
+        link1_value = request.form.get("link1_value", "").strip()
+        link1_platform = request.form.get("link1_platform", "shopee").strip()
+        link2_value = request.form.get("link2_value", "").strip()
+        link2_platform = request.form.get("link2_platform", "tiktok").strip()
+
+        link1_id = _resolve_link_value(link1_value, link1_platform, uid)
+        link2_id = _resolve_link_value(link2_value, link2_platform, uid)
 
         # Resolve URL từ affiliate_links nếu có link1_id
         link1_obj = AffiliateLink.query.filter_by(id=link1_id, user_id=uid).first() if link1_id else None
@@ -247,13 +288,11 @@ def update_link(link_id: int):
             link.og_image_url = request.form.get("og_image_url", "").strip() or None
         if "second_affiliate_url" in request.form:
             link.second_affiliate_url = request.form.get("second_affiliate_url", "").strip() or None
-        # V2: cập nhật FK
-        if "link1_id" in request.form:
-            link1_id_raw = request.form.get("link1_id", "").strip()
-            link.link1_id = int(link1_id_raw) if link1_id_raw.isdigit() else None
-        if "link2_id" in request.form:
-            link2_id_raw = request.form.get("link2_id", "").strip()
-            link.link2_id = int(link2_id_raw) if link2_id_raw.isdigit() else None
+        # V2.1: cập nhật FK hỗ trợ auto-create
+        if "link1_value" in request.form:
+            link.link1_id = _resolve_link_value(request.form.get("link1_value", ""), request.form.get("link1_platform", ""), uid)
+        if "link2_value" in request.form:
+            link.link2_id = _resolve_link_value(request.form.get("link2_value", ""), request.form.get("link2_platform", ""), uid)
         if "is_active" in request.form:
             link.is_active = request.form.get("is_active", "true").lower() == "true"
 

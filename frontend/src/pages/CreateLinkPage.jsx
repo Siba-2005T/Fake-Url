@@ -49,14 +49,20 @@ const AffiliatePicker = ({ trapLabel, trapColor, value, onChange, shopeeLinks, t
 
   // Khi user chọn 1 item từ dropdown
   const handleSelect = (item) => {
-    onChange(item);           // trả { id, name, url }
-    setSearchText(item.name); // hiển thị tên trong input
+    onChange({ ...item, platform }); // Truyền cả platform
+    setSearchText(item.name || item.url);
     setOpen(false);
   };
 
   // Sync display khi value thay đổi từ bên ngoài (VD: reset form)
   useEffect(() => {
-    if (!value) setSearchText('');
+    if (!value) {
+      setSearchText('');
+    } else if (value.isNew) {
+      setSearchText(value.url);
+    } else {
+      setSearchText(value.name);
+    }
   }, [value]);
 
   const platformIcon = platform === 'shopee'
@@ -123,11 +129,19 @@ const AffiliatePicker = ({ trapLabel, trapColor, value, onChange, shopeeLinks, t
         {/* Dropdown list */}
         {open && (
           <ul className="combobox-dropdown">
-            {filtered.length === 0 ? (
+            {/* Nếu nhập URL hợp lệ mà chưa có trong list, cho phép thêm mới */}
+            {searchText.match(/^https?:\/\//) && !filtered.some(i => i.url === searchText) && (
+              <li className="combobox-item" style={{ background: 'rgba(105, 201, 208, 0.1)' }} onMouseDown={() => handleSelect({ id: 'new', isNew: true, name: `Link dán nhanh`, url: searchText })}>
+                <span className="combobox-item-name" style={{ color: trapColor }}>+ Dán link mới này</span>
+                <span className="combobox-item-url">{searchText.slice(0, 50)}...</span>
+              </li>
+            )}
+            
+            {filtered.length === 0 && !searchText.match(/^https?:\/\//) ? (
               <li className="combobox-empty">
                 {items.length === 0
-                  ? `Chưa có link ${platform}. Hãy thêm ở trang Affiliate Manager.`
-                  : 'Không tìm thấy kết quả.'}
+                  ? `Chưa có link ${platform}. Có thể dán trực tiếp một URL.`
+                  : 'Không tìm thấy kết quả. Dán URL để thêm mới.'}
               </li>
             ) : filtered.map(item => (
               <li key={item.id} className="combobox-item" onMouseDown={() => handleSelect(item)}>
@@ -227,12 +241,20 @@ const CreateLinkPage = () => {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      // Payload v2: gửi link1_id và link2_id
+      // Payload v2.1: Gửi link1_value, link1_platform hỗ trợ tạo mới từ URL
       const payload = {
         ...form,
-        link1_id: form.link1?.id,
-        link2_id: form.link2?.id || undefined,
       };
+      
+      if (form.link1) {
+        payload.link1_value = form.link1.isNew ? form.link1.url : form.link1.id;
+        payload.link1_platform = form.link1.platform;
+      }
+      if (form.link2) {
+        payload.link2_value = form.link2.isNew ? form.link2.url : form.link2.id;
+        payload.link2_platform = form.link2.platform;
+      }
+
       const result = await createLink(payload);
       setForm(INITIAL_FORM);
       setSlugStatus(null);

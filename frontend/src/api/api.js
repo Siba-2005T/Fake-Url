@@ -71,9 +71,11 @@ export const fetchLinks = async (page = 1, perPage = 20) => {
 
 export const createLink = async (linkData) => {
   const formData = new FormData();
-  // V2: Gửi link1_id và link2_id (ID của affiliate link)
-  if (linkData.link1_id)            formData.append('link1_id', linkData.link1_id);
-  if (linkData.link2_id)            formData.append('link2_id', linkData.link2_id);
+  // V2.1: Gửi link1_value, link1_platform (hỗ trợ auto-create)
+  if (linkData.link1_value)         formData.append('link1_value', linkData.link1_value);
+  if (linkData.link1_platform)      formData.append('link1_platform', linkData.link1_platform);
+  if (linkData.link2_value)         formData.append('link2_value', linkData.link2_value);
+  if (linkData.link2_platform)      formData.append('link2_platform', linkData.link2_platform);
   // Fallback v1: original_url nếu không dùng ID
   if (linkData.original_url)        formData.append('original_url', linkData.original_url);
   formData.append('custom_slug', linkData.custom_slug);
@@ -92,9 +94,11 @@ export const createLink = async (linkData) => {
 
 export const updateLink = async (id, linkData) => {
   const formData = new FormData();
-  // V2
-  if (linkData.link1_id !== undefined)           formData.append('link1_id', linkData.link1_id || '');
-  if (linkData.link2_id !== undefined)           formData.append('link2_id', linkData.link2_id || '');
+  // V2.1
+  if (linkData.link1_value !== undefined)        formData.append('link1_value', linkData.link1_value || '');
+  if (linkData.link1_platform !== undefined)     formData.append('link1_platform', linkData.link1_platform || '');
+  if (linkData.link2_value !== undefined)        formData.append('link2_value', linkData.link2_value || '');
+  if (linkData.link2_platform !== undefined)     formData.append('link2_platform', linkData.link2_platform || '');
   if (linkData.original_url !== undefined)       formData.append('original_url', linkData.original_url);
   if (linkData.custom_domain !== undefined)      formData.append('custom_domain', linkData.custom_domain || '');
   if (linkData.og_title !== undefined)           formData.append('og_title', linkData.og_title || '');
