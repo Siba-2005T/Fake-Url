@@ -68,9 +68,9 @@ BOT_USER_AGENTS = [
 
 def is_bot_request(user_agent: str) -> bool:
     """
-    Kiểm tra xem request có phải từ bot crawler không.
-    Lưu ý: Facebook crawler (facebookexternalhit) đã được xử lý
-    riêng trong is_facebook_crawler() trước khi gọi hàm này.
+    Kiểm tra xem request đến có phải từ bot crawler không.
+    Lưu ý: Facebook crawler (facebookexternalhit) được xử lý riêng
+    trong is_facebook_crawler() để trả về bot_og.html sạch.
     """
     ua_lower = user_agent.lower()
     return any(bot in ua_lower for bot in BOT_USER_AGENTS)
@@ -78,22 +78,16 @@ def is_bot_request(user_agent: str) -> bool:
 
 def is_facebook_crawler(user_agent: str) -> bool:
     """
-    Phân biệt Facebook CRAWLER (scrape OG tags) với Facebook IAB
-    (người dùng thật duyệt trong app Facebook).
+    Phân biệt Facebook CRAWLER (scrape OG tags) với Facebook IAB.
 
     Facebook crawler có User-Agent cố định:
       facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)
       Facebot
 
-    Facebook IAB (người dùng thật) có:
-      Mozilla/5.0 ... FBAN/... FBAV/...
-
-    Chúng KHÁC NHAU hoàn toàn, cần xử lý riêng:
-      Crawler  → trả về bot_og.html (OG tags sạch)
-      IAB user → Force Breakout (Android Intent / iOS Guide)
+    Crawler  → trả về bot_og.html (OG tags sạch, không JS)
+    IAB user → Force Breakout (Android Intent / iOS Guide)
     """
-    ua = user_agent
-    ua_lower = ua.lower()
+    ua_lower = user_agent.lower()
     return (
         'facebookexternalhit' in ua_lower or
         'facebot'             in ua_lower
@@ -172,57 +166,22 @@ def handle_redirect(slug: str):
     user_agent = request.headers.get("User-Agent", "")
     current_url = request.url
 
-    # ──────────────────────────────────────────────────────────
-    # BƯỚC 1: Facebook Crawler → Trả về bot_og.html NGAY LẬP TỨC
-    # ──────────────────────────────────────────────────────────
-    # Facebook crawler (facebookexternalhit/Facebot) CHỈ cần đọc
-    # OG meta tags. Trả về template siêu sạch, KHÔNG chạy bất kỳ
-    # logic nào khác (không tracking, không redirect, không breakout).
-    if is_facebook_crawler(user_agent):
-        base_url = current_app.config.get("BASE_URL", "")
-
-        # Ưu tiên 1: og_image_url (URL dán trực tiếp — thumbnail có nút play)
-        # Ưu tiên 2: image_path (ảnh upload lên Cloudinary/local)
-        # Fallback:  ảnh placeholder
-        og_image = (
-            link.og_image_url
-            or build_image_url(base_url, link.image_path)
-            or f"{base_url}/static/default_og.png"
-        )
-
-        current_app.logger.info(
-            f"[Bot] Facebook crawler → bot_og.html | slug={slug}"
-        )
-        bot_html = render_template(
-            "bot_og.html",
-            og_title       = link.og_title or "Xem ngay!",
-            og_description = link.og_description or "Nhấn để xem nội dung.",
-            og_image       = og_image,
-            og_url         = current_url,
-        )
-        bot_resp = current_app.make_response(bot_html)
-        bot_resp.headers["Content-Type"] = "text/html; charset=utf-8"
-        # Cache 5 phút cho bot (giảm tải server)
-        bot_resp.headers["Cache-Control"] = "public, max-age=300"
-        return bot_resp
-
-    # ──────────────────────────────────────────────────────────
-    # BƯỚC 2: Các bot khác (Googlebot, Zalo, Telegram...) → OG tags đầy đủ
-    # ──────────────────────────────────────────────────────────
     base_url = current_app.config.get("BASE_URL", "")
+    og_title       = link.og_title or "Xem ngay!"
+    og_description = link.og_description or "Nhấn để xem nội dung."
 
-    # Ưu tiên og_image_url, fallback image_path, fallback placeholder
+    # Ưu tiên: og_image_url (URL dán trực tiếp có nút play) → image_path → placeholder
     og_image_resolved = (
         link.og_image_url
         or build_image_url(base_url, link.image_path)
         or f"{base_url}/static/default_og.png"
     )
 
-    og_title = link.og_title or "Xem ngay!"
-    og_description = link.og_description or "Nhấn để xem nội dung."
-
-    if is_bot_request(user_agent):
-        # Bot không phải Facebook → cũng trả về bot_og.html
+    # --------------------------------------------------------
+    # BƯỚC 1: Facebook Crawler → Trả về bot_og.html ngay lập tức
+    # Không tracking, không redirect, không logic khác.
+    # --------------------------------------------------------
+    if is_facebook_crawler(user_agent):
         bot_html = render_template(
             "bot_og.html",
             og_title       = og_title,
@@ -235,17 +194,28 @@ def handle_redirect(slug: str):
         bot_resp.headers["Cache-Control"] = "public, max-age=300"
         return bot_resp
 
-    # ──────────────────────────────────────────────────────────
-    # BƯỚC 3: Người dùng thật → Click_count + Video + landing.html
-    # Không còn Force Breakout. Mọi trình duyệt (Facebook IAB
-    # Android, iOS, Chrome, Safari) đều vào cùng một landing page.
-    # Cơ chế bypass Facebook IAB được xử lý ở HTML/JS
-    # bằng thẻ <a target="_top"> — không dùng Intent redirect.
-    # ──────────────────────────────────────────────────────────
+    # --------------------------------------------------------
+    # BƯỚC 2: Các bot khác (Googlebot, Zalo...) → bot_og.html
+    # --------------------------------------------------------
+    if is_bot_request(user_agent):
+        bot_html = render_template(
+            "bot_og.html",
+            og_title       = og_title,
+            og_description = og_description,
+            og_image       = og_image_resolved,
+            og_url         = current_url,
+        )
+        bot_resp = current_app.make_response(bot_html)
+        bot_resp.headers["Content-Type"] = "text/html; charset=utf-8"
+        bot_resp.headers["Cache-Control"] = "public, max-age=300"
+        return bot_resp
 
-    # Tăng click_count (chống spam bằng Cookie)
+    # --------------------------------------------------------
+    # BƯỚC 3: Người dùng thật → Tăng click_count
+    # --------------------------------------------------------
     cookie_key = f"viewed_{slug}"
     has_viewed = request.cookies.get(cookie_key)
+
     if not has_viewed:
         try:
             link.click_count += 1
@@ -253,26 +223,65 @@ def handle_redirect(slug: str):
         except Exception:
             db.session.rollback()
 
-    # ── Resolve video URL ──
+    # --------------------------------------------------------
+    # Xử lý video URL dựa vào video_source
+    # --------------------------------------------------------
     video_url = None
     if link.video_source == 'telegram':
         if link.telegram_file_id:
             bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
             if bot_token:
                 try:
+                    # Gọi Telegram API getFile
                     tg_api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={link.telegram_file_id}"
                     resp = requests.get(tg_api_url, timeout=5)
                     data = resp.json()
                     if data.get("ok") and "result" in data:
                         file_path = data["result"].get("file_path")
                         if file_path:
+                            # Construct link trực tiếp
                             video_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
                 except Exception as e:
                     current_app.logger.error(f"Lỗi lấy video Telegram: {e}")
     else:
+        # direct source
         video_url = link.direct_video_url
 
-    # ── Resolve affiliate link URL & ID cho bẫy 2 tầng ──
+    # --------------------------------------------------------
+    # FORCE BREAKOUT: Phân tích Facebook IAB và xử lý riêng
+    # --------------------------------------------------------
+    fb_info = detect_facebook_browser(user_agent)
+    is_facebook_ios = False  # mặc định: không phải Facebook iOS
+
+    if fb_info['is_facebook'] and not is_bot_request(user_agent):
+        if fb_info['is_android']:
+            # ── ANDROID: Redirect sang Intent Chrome ──
+            # Intent URI bướộc thiết bị mở trang bằng Chrome ứng dụng,
+            # bỏ qua hoàn toàn webview của Facebook.
+            # package=com.android.chrome → AOSP Chrome
+            # Nếu không có Chrome, fallback browser của AOSP.
+            intent_url = (
+                f"intent://{request.host}/{slug}"
+                f"#Intent;scheme=https;package=com.android.chrome;"
+                f"S.browser_fallback_url=https://{request.host}/{slug};end"
+            )
+            current_app.logger.info(
+                f"[Breakout] Android Facebook IAB → Intent redirect: {intent_url[:80]}"
+            )
+            return redirect(intent_url, 302)
+
+        elif fb_info['is_ios']:
+            # ── IOS: Truyền cờ vào template, hiện màn hướng dẫn thủ công ──
+            # iOS không hỗ trợ Intent URI, không có cách tự động breakout.
+            # Giải pháp duy nhất: Hướng dẫn người dùng thủ công mở Safari.
+            is_facebook_ios = True
+            current_app.logger.info(
+                f"[Breakout] iOS Facebook IAB → Hiện màn hướng dẫn"
+            )
+
+    # --------------------------------------------------------
+    # Resolve URL & ID cho Bẫy Click 2 tầng (dùng FK v2 ưu tiên)
+    # --------------------------------------------------------
     if link.link1_id and link.link1:
         link1_url = link.link1.url
         link1_id  = link.link1_id
@@ -289,7 +298,9 @@ def handle_redirect(slug: str):
         aff2 = AffiliateLink.query.filter_by(url=link.second_affiliate_url).first() if link.second_affiliate_url else None
         link2_id  = aff2.id if aff2 else ""
 
-    # ── Render landing.html ──
+    # --------------------------------------------------------
+    # Render và trả về HTML
+    # --------------------------------------------------------
     html_content = render_template(
         "landing.html",
         og_title=og_title,
@@ -301,19 +312,25 @@ def handle_redirect(slug: str):
         link2_url=link2_url,
         link2_id=link2_id,
         slug_id=link.custom_slug,
+        is_facebook_ios=is_facebook_ios,
         original_url=link1_url,
         second_affiliate_url=link2_url,
         final_video_url=video_url,
         content_description=link.content_description
     )
 
+    # Trả về HTML với status 200
+    # Content-Type: text/html để browser render đúng
     response = current_app.make_response(html_content)
     response.headers["Content-Type"] = "text/html; charset=utf-8"
+
+    # Ngăn cache để OG tags luôn được cập nhật mới nhất
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-
-    if not has_viewed:
+    
+    # Nếu chưa xem, set cookie 24h
+    if not is_bot_request(user_agent) and not has_viewed:
         response.set_cookie(cookie_key, '1', max_age=86400)
 
     return response
